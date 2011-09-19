@@ -8,6 +8,8 @@ INCDIRS=$(addprefix -I,$(INCDIR))
 OBJ=$(patsubst %.c,%.o,$(BUILDDIR)/$(notdir $(CSRC)))
 TGT=goliath
 
+ALL=$(TGT)
+
 # creates a '.d' file in compiler output directories.
 %/.d:
 	@mkdir -p $(@D)
