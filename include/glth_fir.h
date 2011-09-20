@@ -25,3 +25,16 @@ typedef struct {
  * coefficients from an array in the arguments.
  */
 glth_result glth_fir_init(glth_fir*, const unsigned int, glth_sample_t*);
+
+/* 
+ * update a glth_fir, placing the result in the third argument.
+ */
+glth_result glth_fir_update(glth_fir*, 
+			    const glth_sample_t, 
+			    glth_sample_t*);
+
+/*
+ * calculate the filter output over its current delay line and 
+ * coefficients.
+ */
+glth_sample_t glth_fir_output(glth_fir* filter);
