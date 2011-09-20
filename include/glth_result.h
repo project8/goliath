@@ -22,3 +22,8 @@ static const glth_result glth_e_nomem = 0x2;
  * inappropriately.
  */
 static const glth_result glth_nullptr = 0x3;
+
+/*
+ * return if an argument to a function is inappropriate.
+ */
+static const glth_result glth_badarg = 0x4;
