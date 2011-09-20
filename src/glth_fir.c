@@ -5,6 +5,8 @@ glth_result glth_fir_init(glth_fir* tgt,
 			  glth_sample_t* coefset) {
   glth_result res = glth_success;
   if(tgt != NULL) {
+    tgt->ntaps = ntaps;
+    tgt->delay = (glth_cb*)calloc(1,sizeof(glth_cb));
     if( glth_cb_init(tgt->delay,ntaps) == glth_success ) {
       tgt->coefs = (glth_sample_t*)calloc(ntaps, sizeof(glth_sample_t));
       if(tgt->coefs != NULL) {
