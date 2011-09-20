@@ -1,3 +1,6 @@
+#ifndef __glth_result_h
+#define __glth_result_h
+
 /* glth_result.h
  * written by jared kofron <jared.kofron@gmail.com>
  * result codes for the goliath program.
@@ -27,3 +30,5 @@ static const glth_result glth_nullptr = 0x3;
  * return if an argument to a function is inappropriate.
  */
 static const glth_result glth_badarg = 0x4;
+
+#endif //__glth_result_h
