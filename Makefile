@@ -5,7 +5,7 @@ CSRC=$(wildcard $(SRCDIR)/*.c)
 BUILDDIR=build
 INCDIR=./include
 INCDIRS=$(addprefix -I,$(INCDIR))
-OBJ=$(patsubst %.c,%.o,$(BUILDDIR)/$(notdir $(CSRC)))
+OBJ=$(patsubst %.c,%.o,$(addprefix $(BUILDDIR)/,$(notdir $(CSRC))))
 TGT=goliath
 
 ALL=$(TGT)
