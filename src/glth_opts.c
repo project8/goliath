@@ -16,11 +16,13 @@ glth_result args_to_opts(glth_opts* tgt, int argc, char** argv) {
 	set_bit(tgt,input_file_set);
 	break;
       case 'h':
-	printf("help!\n");
+	glth_usage();
+	res = glth_failure;
+	c = -1;
 	break;
       case 'w':
 	if( sscanf(optarg,"%u",&(tgt->filter_width)) == 0 ) {
-	  printf("help!\n");
+	  glth_usage();
 	  res = glth_badarg;
 	  c = -1;
 	}

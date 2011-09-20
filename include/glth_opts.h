@@ -6,10 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <limits.h>
 
 // glth includes
 #include "glth_result.h"
+#include "glth_usage.h"
 
 // bitmask defines
 #define chk_bit(info,bit) ((info->conf_mask & bit) == bit)
