@@ -1,3 +1,6 @@
+#ifndef __glth_cb_h
+#define __glth_cb_h
+
 /* glth_cb.c
  * written by jared kofron <jared.kofron@gmail.com>
  * circular buffer implementation for goliath.  used for the delay lines
@@ -28,3 +31,5 @@ glth_result glth_cb_init(glth_cb*, const unsigned int);
  * is passed as the first argument.
  */
 glth_result glth_cb_push(glth_cb*, const glth_sample_t);
+
+#endif // __glth_cb_h
