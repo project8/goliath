@@ -1,3 +1,6 @@
+#ifndef __glth_fir_h
+#define __glth_fir_h
+
 /* glth_fir.h
  * written by jared kofron <jared.kofron@gmail.com>
  * implements a finite impulse response filter structure for goliath.
@@ -38,3 +41,5 @@ glth_result glth_fir_update(glth_fir*,
  * coefficients.
  */
 glth_sample_t glth_fir_output(glth_fir* filter);
+
+#endif __glth_fir_h
