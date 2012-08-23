@@ -2,6 +2,7 @@
 #define __glth_sig_hpp
 
 #include <vector>
+#include <complex>
 #include "glth_const.hpp"
 #include "glth_types.hpp"
 #include "glth_px1500.hpp"
