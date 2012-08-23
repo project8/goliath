@@ -27,17 +27,17 @@ namespace glth {
   template <>
   class signal<glth_types::analog> {
   private:
-    std::vector<double> _sigdata;
+    std::vector<std::complex<double>> _sigdata;
     std::size_t _siglen;
   public:
     // Constructor takes a single argument, the length of the signal
     signal(std::size_t len);
 
     // Array access operator
-    double& operator[](std::size_t pos);
+    std::complex<double>& operator[](std::size_t pos);
 
     std::size_t len();
-    double* data();
+    std::complex<double>* data();
 
   }; // class analog signal
 
