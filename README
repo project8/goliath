@@ -1,1 +1,13 @@
 goliath is big.  
+
+it has the stated aim of detecting candidate events in files by performing the line integral
+transform of the cross wigner-ville distribution formed from the two channel data taken by the
+project8 receiver.
+
+it also aims to be as efficient and fast as possible.  the XWVD is not a quick process, but is
+provably optimal in terms of SNR - hence its use.  the current implementation is a factor of 5 or
+so faster than MATLAB, with hopes of getting faster still.
+
+depends on OpenCV and Monarch.
+
+A work in progress!!!
