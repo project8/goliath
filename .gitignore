@@ -10,3 +10,5 @@ glth
 glth_test
 *.dat
 frame/
+deps/
+deps/*
