@@ -1,97 +1,65 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
-#include "glth_signal.hpp"
-
-extern "C" {
-  #include "fftw3.h"
-}
-
-int irem( double x, double y)
-{
- int result;
-
- if (y != 0)
-   {
-     result =  x-y* (int)(x/y);
-   }
- else
-   {
-     result = 0;
-    }
-
- return result;
-}
-
+#include <tr1/random>
+#include "glth_xfrmr.hpp"
+ 
 int main(const int argc, char** argv) {
+  // Random number generation
+  std::tr1::mt19937 prng(0);
+  std::tr1::normal_distribution<double> normal;
+  std::tr1::variate_generator<std::tr1::mt19937,std::tr1::normal_distribution<double>> randn(prng,normal);
+  
   // Constant
   double pi = 3.14159;
 
   // Data
-  std::size_t siglen = 4096;
+  std::size_t siglen = 256;
   glth::analog_signal sig(siglen);
-  int fftlen = 2048;
-  std::complex<double> *lacf = new std::complex<double>[siglen];
-  std::complex<double> *out = new std::complex<double>[fftlen];
+  int fftlen = 128;
+  glth::glth_xfrmr xfm(siglen, siglen, fftlen);
+
   std::complex<double> **wvd = new std::complex<double>*[siglen];
   for(std::size_t i = 0; i < siglen; i++) {
     wvd[i] = new std::complex<double>[fftlen];
   }
 
-  // FFTW plan
-  fftw_plan p = fftw_plan_dft_1d(fftlen, 
-				 reinterpret_cast<fftw_complex*>(lacf), 
-				 reinterpret_cast<fftw_complex*>(out), 
-				 FFTW_FORWARD, 
-				 FFTW_ESTIMATE);
 
   // By default we have succeeded.
   glth_const::exit res = glth_const::success;
 
   // Make two signals and XWVD them.
-  float freq_0 = 0.1;
-  float chirp_rate = 0.0005;
+  float freq_0 = 30e6;
+  float pitch_angle = 90;
+  float power_loss = 1.0e-15;  // Watts
+  float energy_0 = 18e3; // keV
+  float zmax = 1.0e-3; // meters
+  float warble = 10e6; // axial frequency
+  float phase_v = 299792458; // phase velocity, approx at c for now
+  float gamma_0 = 1 + energy_0/511;
+  float chirp_rate = power_loss/(gamma_0 * 8.18e-14);
+  float sample_rate = 250e6;
+  float t = 0;
 
   for(int idx = 0; idx < siglen; idx++) {
-    double phase = freq_0*idx + chirp_rate*idx*idx;
-    sig[idx] = std::complex<double>(cos(2*pi*phase),sin(2*pi*phase));
+    t = idx/sample_rate;
+    double phase = freq_0*t*
+      ((1 + 0.5*cos(pitch_angle)*cos(pitch_angle)/(sin(pitch_angle)*sin(pitch_angle))) + 
+       chirp_rate*t +
+       zmax*warble/phase_v*cos(warble*t));
+    std::complex<double> noise = std::complex<double>(randn(),randn());
+    sig[idx] = std::complex<double>(cos(2*pi*phase),sin(2*pi*phase)) + 0.3*noise;
   }
 
-  std::ofstream sigfile("glth_sig_out.dat");
-  for(std::size_t i = 0; i < siglen; i++) {
-    sigfile << i << "," << sig[i] << std::endl;
-  }
-  sigfile.close();
+   std::ofstream sigfile("glth_sig_out.dat");
+   for(std::size_t i = 0; i < siglen; i++) {
+       sigfile << i << "," << sig[i] << std::endl;
+   }
+   sigfile.close();
 
-  // Now WVD it.
-  int tau, taumax;
+   xfm.wvd(sig, wvd);
 
-  for(int t = 0; t < siglen; t++) {
-
-    // How large in tau should we go?
-    taumax = (t < (siglen - t - 1)) ? t : (siglen - t - 1);
-    taumax = (taumax < (fftlen/2 - 1)) ? taumax : (fftlen/2 - 1);
-
-    for(tau = -taumax; tau <= taumax; tau++) {
-      int row = irem(fftlen + tau, fftlen);
-      lacf[row] = sig[t + tau]*std::conj(sig[t - tau]);
-    }
-
-    tau = floor(fftlen/2);
-        if((t <= (siglen - tau - 1)) && (t >= tau)) {
-	  lacf[t] =0.5*(sig[t + tau]*std::conj(sig[t - tau]) + 
-			sig[t - tau]*std::conj(sig[t + tau]));
-    }
-
-    fftw_execute(p);
-
-    // write to WVD
-    for(std::size_t i = 0; i < fftlen; i++) {
-      wvd[t][i] = out[i];
-    }
-  }
-
-  // Now dump to disk in the form of total data and frames.
+  //  Now dump to disk in the form of total data and frames.
   std::ofstream datafile("glth_out.dat");
   for(std::size_t i = 0; i < siglen; i++) {
     for(std::size_t j = 0; j < fftlen; j++) {

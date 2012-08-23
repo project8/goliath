@@ -1,7 +1,8 @@
 #!/usr/bin/env /bin/bash
 
 echo "set terminal png" > animate.gp
-echo "set yrange [0:1000]" >> animate.gp
+echo "set yrange [1:10]" >> animate.gp
+echo "set log y" >> animate.gp
 echo "set datafile separator \",\"" >> animate.gp
 
 for frame in $(seq 0 255); do
@@ -10,5 +11,5 @@ for frame in $(seq 0 255); do
 done
 
 gnuplot < animate.gp
-ffmpeg -f image2 -i "frame/out%04d.png" -r 25 "animate.mov"
+yes | ffmpeg -f image2 -i "frame/out%04d.png" -r 25 "animate.mov"
 rm animate.gp

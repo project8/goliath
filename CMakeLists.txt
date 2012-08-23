@@ -62,11 +62,13 @@ set (GOLIATH_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_const.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_signal.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_types.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_xfrmr.hpp
 )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set (GOLIATH_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_signal.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_xfrmr.cpp
 )
 
 # Generate the Protocol Buffers cpp file
