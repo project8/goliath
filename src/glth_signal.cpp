@@ -20,7 +20,7 @@ glth_types::byte& glth::digital_signal::operator[](std::size_t pos) {
   return ((*this)._sigdata)[pos];
 }
 
-double& glth::analog_signal::operator[](std::size_t pos) {
+std::complex<double>& glth::analog_signal::operator[](std::size_t pos) {
   return ((*this)._sigdata)[pos];
 }
 
@@ -32,7 +32,7 @@ std::size_t glth::digital_signal::len() {
   return (*this)._sigdata.size();
 }
 
-double* glth::analog_signal::data() 
+std::complex<double>* glth::analog_signal::data() 
 {
   return (&(*this)._sigdata.front());
 }
@@ -48,14 +48,14 @@ glth::digital_signal* analog_to_digital(glth::analog_signal in) {
   if(digout) {
     for(std::size_t idx = 0; idx < newlen; idx++) {
       glth_types::byte pt = 0;
-      if( in[idx] > glth_px1500::max_mvolts ) {
+      if( std::norm(in[idx]) > glth_px1500::max_mvolts ) {
 	pt = 255;
       }
-      else if( in[idx] < glth_px1500::min_mvolts ) {
+      else if( std::norm(in[idx]) < glth_px1500::min_mvolts ) {
 	pt = 0;
       }
       else {
-	pt = 128 + in[idx]*(2<<glth_px1500::n_bits)/(glth_px1500::in_range);
+	pt = 128 + std::norm(in[idx])*(2<<glth_px1500::n_bits)/(glth_px1500::in_range);
       }
       (*digout)[idx] = pt;
     }
