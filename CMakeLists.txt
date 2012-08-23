@@ -1,5 +1,4 @@
-# CMakeLists for Monarch
-# Author: N. Oblath
+# CMakeLists for Goliath
 
 #############
 # Setup stuff
@@ -8,11 +7,17 @@
 # minimum cmake version 2.6 required by the scripts to get Git information
 cmake_minimum_required (VERSION 2.6)
 
-# we need to use our cmake files
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/" ${CMAKE_MODULE_PATH})
-
 # define the project
 project (goliath)
+
+# find OpenCV.  This, for some totally bizarre reason, needs to come *before*
+# the CMAKE_MODULE_PATH is created for FFTW.
+find_package (OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIR})
+set (LIBS ${LIBS} ${OpenCV_LIBS})
+
+# we need to use our cmake files
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/" )
 
 # Setup the default install prefix
 # This gets set to the binary directory upon first configuring.
