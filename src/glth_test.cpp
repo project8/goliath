@@ -25,32 +25,36 @@ int irem( double x, double y)
 
 int main(const int argc, char** argv) {
   // Constant
-  float pi = 3.14159;
+  double pi = 3.14159;
 
   // Data
-  std::size_t siglen = 256;
+  std::size_t siglen = 4096;
   glth::analog_signal sig(siglen);
-  int fftlen = 128;
-  double *lacf = new double[siglen];
-  double *out = new double[fftlen];
-  double **wvd = new double*[siglen];
+  int fftlen = 2048;
+  std::complex<double> *lacf = new std::complex<double>[siglen];
+  std::complex<double> *out = new std::complex<double>[fftlen];
+  std::complex<double> **wvd = new std::complex<double>*[siglen];
   for(std::size_t i = 0; i < siglen; i++) {
-    wvd[i] = new double[fftlen];
+    wvd[i] = new std::complex<double>[fftlen];
   }
 
   // FFTW plan
-  fftw_plan p = fftw_plan_r2r_1d(fftlen, lacf, out, 
-				 FFTW_R2HC, FFTW_ESTIMATE);
+  fftw_plan p = fftw_plan_dft_1d(fftlen, 
+				 reinterpret_cast<fftw_complex*>(lacf), 
+				 reinterpret_cast<fftw_complex*>(out), 
+				 FFTW_FORWARD, 
+				 FFTW_ESTIMATE);
 
   // By default we have succeeded.
   glth_const::exit res = glth_const::success;
 
   // Make two signals and XWVD them.
   float freq_0 = 0.1;
-  float chirp_rate = 0.0001;
+  float chirp_rate = 0.0005;
 
-  for(std::size_t i = 0; i < siglen; i++) {
-    sig[i] = sin(2*pi*(freq_0*i + chirp_rate*i*i));
+  for(int idx = 0; idx < siglen; idx++) {
+    double phase = freq_0*idx + chirp_rate*idx*idx;
+    sig[idx] = std::complex<double>(cos(2*pi*phase),sin(2*pi*phase));
   }
 
   std::ofstream sigfile("glth_sig_out.dat");
@@ -70,12 +74,13 @@ int main(const int argc, char** argv) {
 
     for(tau = -taumax; tau <= taumax; tau++) {
       int row = irem(fftlen + tau, fftlen);
-      lacf[row] = sig[t + tau]*sig[t - tau];
+      lacf[row] = sig[t + tau]*std::conj(sig[t - tau]);
     }
 
     tau = floor(fftlen/2);
-    if((t <= (siglen - tau - 1)) && (t >= tau)) {
-      lacf[t] = sig[t + tau]*sig[t - tau];
+        if((t <= (siglen - tau - 1)) && (t >= tau)) {
+	  lacf[t] =0.5*(sig[t + tau]*std::conj(sig[t - tau]) + 
+			sig[t - tau]*std::conj(sig[t + tau]));
     }
 
     fftw_execute(p);
@@ -90,7 +95,7 @@ int main(const int argc, char** argv) {
   std::ofstream datafile("glth_out.dat");
   for(std::size_t i = 0; i < siglen; i++) {
     for(std::size_t j = 0; j < fftlen; j++) {
-      datafile << i << "," << j << "," << wvd[i][j] << std::endl;
+      datafile << i << "," << j << "," << std::real(wvd[i][j]) << "," << std::imag(wvd[i][j]) << std::endl;
     }
   }
   datafile.close();
@@ -100,7 +105,7 @@ int main(const int argc, char** argv) {
     sprintf(buf,"frame/out%04d.dat",(int)i);
     std::ofstream data(buf);
     for(std::size_t j = 0; j < fftlen; j++) {
-      data << i << "," << j << "," << wvd[i][j] << std::endl;
+      data << i << "," << j << "," << std::real(wvd[i][j]) << "," << std::imag(wvd[i][j]) << std::endl;
     }
     data.close();
   }
