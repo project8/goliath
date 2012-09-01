@@ -21,7 +21,14 @@ int main(int argc, char** argv) {
   }
 
   else {
+    // Our pointer to the IO object which gets our data for us
     io* io = io::open_file(env->get_in_filename());
+
+    // Signals!
+    std::size_t record_len = (io->get_record_length());
+    std::cout << "*Record length: " << record_len << std::endl;
+    std::cout << "**Allocating channel signals" << std::endl;
+    glth::signal ch1(record_len), ch2(record_len);
 
     if(io) {
       std::cout << "hi" << std::endl;
