@@ -27,7 +27,7 @@ namespace glth {
   template <>
   class signal<glth_types::analog> {
   private:
-    std::vector<std::complex<double>> _sigdata;
+    std::vector<std::complex<double> > _sigdata;
     std::size_t _siglen;
   public:
     // Constructor takes a single argument, the length of the signal
