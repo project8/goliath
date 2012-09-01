@@ -18,6 +18,8 @@ namespace glth {
     Monarch const* _monarch_ptr;
   public:
     static io* open_file(std::string filename);
+    std::size_t get_record_length() const;
+    std::size_t get_record_length();
   }; // class io
 
 }; // namespace glth
