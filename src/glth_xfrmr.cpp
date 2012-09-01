@@ -36,6 +36,13 @@ void glth::glth_xfrmr::wvd(glth::analog_signal tgt, std::complex<double>** out)
 {
   int tau, taumax;
   int siglen = tgt.len();
+
+  glth::analog_signal tgt_star(tgt.len());
+  for(int i = 0; i < siglen; i++) {
+    tgt_star[i] = std::conj(tgt[i]);
+  }
+
+  //#pragma omp for private(tau)
   for(int t = 0; t < siglen; t++) {
     
     // How large in tau should we go?
@@ -44,13 +51,13 @@ void glth::glth_xfrmr::wvd(glth::analog_signal tgt, std::complex<double>** out)
 
     for(tau = -taumax; tau <= taumax; tau++) {
       int row = irem(_freq_res + tau, _freq_res);
-      _in[row] = tgt[t + tau]*std::conj(tgt[t - tau]);
+      _in[row] = (tgt[t + tau])*(tgt_star[t - tau]);
     }
 
     tau = floor(_freq_res/2);
     if((t <= (siglen - tau - 1)) && (t >= tau)) {
-      _in[t] =0.5*(tgt[t + tau]*std::conj(tgt[t - tau]) + 
-		    tgt[t - tau]*std::conj(tgt[t + tau]));
+      _in[t] =0.5*(tgt[t + tau])*(tgt_star[t - tau]) + 
+	(tgt[t - tau])*(tgt_star[t + tau]);
     }
 
     fftw_execute_dft(_fwd_plan,
