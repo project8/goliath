@@ -16,3 +16,11 @@ glth::io* glth::io::open_file(std::string filename) {
   
   return _io_ptr;
 }
+
+std::size_t glth::io::get_record_length() {
+  return static_cast<const io*>(this)->get_record_length();
+}
+
+std::size_t glth::io::get_record_length() const {
+  return (this->_monarch_ptr->GetHeader()->GetRecordSize());
+}
