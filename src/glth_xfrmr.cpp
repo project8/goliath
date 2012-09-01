@@ -32,12 +32,12 @@ int glth::glth_xfrmr::irem( double x, double y)
   return result;
 }
 
-void glth::glth_xfrmr::wvd(glth::analog_signal tgt, std::complex<double>** out) 
+void glth::glth_xfrmr::wvd(glth::signal tgt, std::complex<double>** out) 
 {
   int tau, taumax;
-  int siglen = tgt.len();
+  int siglen = tgt.size();
 
-  glth::analog_signal tgt_star(tgt.len());
+  glth::signal tgt_star(tgt.size());
   for(int i = 0; i < siglen; i++) {
     tgt_star[i] = std::conj(tgt[i]);
   }

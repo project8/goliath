@@ -9,6 +9,7 @@ extern "C" {
 namespace glth {
 
   class glth_xfrmr {
+
   private:
     std::size_t _in_size;
     std::size_t _out_size;
@@ -26,11 +27,11 @@ namespace glth {
 
     // Calculate the wigner-ville distribution for an input signal.  
     // Equivalent to xwvd(tgt, tgt, out).
-    void wvd(glth::analog_signal tgt, std::complex<double>** out);
+    void wvd(glth::signal tgt, std::complex<double>** out);
 
     // Calculate the cross wigner-ville distribution for two signals.
-    void xwvd(glth::analog_signal tgt1,
-	      glth::analog_signal tgt2,
+    void xwvd(glth::signal tgt1,
+	      glth::signal tgt2,
 	      std::complex<double>** out);
   };
 

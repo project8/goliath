@@ -93,9 +93,9 @@ int main(const int argc, char** argv) {
   double pi = 3.14159;
 
   // Data
-  std::size_t siglen = 2097152;
-  glth::analog_signal sig(siglen);
-  int fftlen = 4096;
+  std::size_t siglen = 4096;
+  glth::signal sig(siglen);
+  int fftlen = 2048;
   glth::glth_xfrmr xfm(siglen, siglen, fftlen);
 
   std::complex<double> **wvd = new std::complex<double>*[siglen];
