@@ -52,6 +52,9 @@ set (LIBS ${LIBS} ${FFTW_LIBRARY} fftw3_threads)
 # let's be fancy!
 set( CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
 
+# monarch pls
+include_directories("deps/monarch/include" "deps/monarch")
+link_directories("deps/monarch/lib")
 
 ##############
 # Build things
@@ -68,12 +71,16 @@ set (GOLIATH_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_signal.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_types.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_xfrmr.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_io.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_env.hpp
 )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set (GOLIATH_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_signal.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_xfrmr.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_io.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_env.cpp
 )
 
 # Generate the Protocol Buffers cpp file
@@ -81,18 +88,14 @@ set (GOLIATH_SOURCE_FILES
 #protobuf_generate_cpp (GENERATED_PROTO_SOURCE_FILES GENERATED_PROTO_HEADER_FILES ${MONARCH_PROTOBUF_HEADER_FILES})
 #install (FILES ${GENERATED_PROTO_HEADER_FILES}  DESTINATION ${INCLUDE_INSTALL_DIR})
 
-# Build the Monarch library
-#add_library (monarch ${MONARCH_SOURCE_FILES} ${GENERATED_PROTO_SOURCE_FILES})
-#set_target_properties(monarch PROPERTIES INSTALL_NAME_DIR ${LIB_INSTALL_DIR})
-#target_link_libraries (monarch ${LIBS})
 
 #install (FILES ${MONARCH_HEADER_FILES}  DESTINATION ${INCLUDE_INSTALL_DIR})
 #install (TARGETS monarch  DESTINATION ${LIB_INSTALL_DIR})
 
 # Build the test executable
 add_executable (glth ${CMAKE_CURRENT_SOURCE_DIR}/src/glth.cpp ${GOLIATH_SOURCE_FILES})
-target_link_libraries(glth ${LIBS})
+target_link_libraries(glth monarch ${LIBS})
 add_executable (glth_test ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_test.cpp ${GOLIATH_SOURCE_FILES})
-target_link_libraries(glth_test ${LIBS})
+target_link_libraries(glth_test monarch ${LIBS})
 
 install (TARGETS DESTINATION ${BIN_INSTALL_DIR})
