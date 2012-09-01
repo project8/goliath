@@ -47,7 +47,7 @@ set (LIBS ${LIBS} ${PROTOBUF_LIBRARIES})
 # find FFTW
 find_package (FFTW REQUIRED)
 include_directories(${FFTW_INCLUDE_DIR})
-set (LIBS ${LIBS} ${FFTW_LIBRARY} fftw3_threads)
+set (LIBS ${LIBS} ${FFTW_LIBRARY})
 
 # let's be fancy!
 set( CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
