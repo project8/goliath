@@ -50,7 +50,7 @@ include_directories(${FFTW_INCLUDE_DIR})
 set (LIBS ${LIBS} ${FFTW_LIBRARY} fftw3_threads)
 
 # let's be fancy!
-set( CMAKE_CXX_FLAGS "-std=c++11 -O2 ${CMAKE_CXX_FLAGS}")
+set( CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
 
 
 ##############
