@@ -105,7 +105,7 @@ int main(const int argc, char** argv) {
  
 
   // By default we have succeeded.
-  glth_const::exit res = glth_const::success;
+  glth_const::exit_status res = glth_const::exit_success;
 
   // Make two signals and XWVD them.
   float freq_0 = 30e6;
