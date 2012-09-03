@@ -104,8 +104,7 @@ int main(int argc, char** argv) {
 	std::cout << "**Calculating event threshold between bins " 
 		  << bin10MHz
 		  << " and "
-		  << bin100MHz
-		  << std::endl;
+		  << bin100MHz;
 	std::map<int,meanvar> thresh;
 	// Go between the bins we care about and calculate the thresholds for each  
 	for(std::size_t bin = bin10MHz; bin < bin100MHz; bin++) {
@@ -117,20 +116,96 @@ int main(int argc, char** argv) {
 	  
 	  // One for pass for variance
 	  for(std::size_t thresh_t = 0; thresh_t < 1024; thresh_t++) {
-	    thresh[bin].second += pow(std::norm(tfr[thresh_t][bin]) - thresh[bin].first,2);
+	    double contrib = pow(std::norm(tfr[thresh_t][bin]),2);
+	    thresh[bin].second += contrib;
 	  }
 	  // Calculate the variance
 	  thresh[bin].second /= 1024;
-
-	  std::cout << thresh[bin].first << "," << thresh[bin].second << std::endl;
-	  
+	  thresh[bin].second -= pow(thresh[bin].first,2.0);
+	  thresh[bin].second = sqrt(thresh[bin].second);
 	}
+
+	// Output mean of the means, mean of the variances as diagnostic.
+	double meanmean(0), meanstd(0);
+	for(std::size_t bin = bin10MHz; bin < bin100MHz; bin++) {
+	  meanmean += thresh[bin].first;
+	  meanstd += thresh[bin].second;
+	}
+	
+	std::cout << "(" 
+		  << "avg mean: "
+		  << meanmean
+		  << ", avg 1 sigma thresh:"
+		  << meanstd
+		  << ")" 
+		  << std::endl;
+	
+	// Now traverse the XWVD from bin 1024 on.  At each time slice, inspect
+	// each bin in the bandpass of the receiver and check if it is at the 
+	// 3 sigma level or higher (this is an arbitrary choice for now, this
+	// should really be an option).  If it is, set a flag that a discriminator
+	// was high.  There is, of course, a 0.3% chance for a bin to randomly 
+	// fluctuate to 3 sigma, and so a 0.3% chance for *any* of the N bins inside
+	// the bandpass to be high.  So for *any* bin to be high for M time slices
+	// in a row, we have P = (0.003)^M.  This can be used as another kind of 
+	// detection threshold: once you've observed a P < P' event, fire the top 
+	// level discriminator.  P' is (0.003)^(f_s*t) where f_s is the sampling
+	// frequency and t is a time constant.  This is now a probability for 
+	// any bin to be high for some time t given a sampling frequency f_s.
+	double probacc = 0.0;
+	double probdisc = nyquist_f*30.0e-6;
+	bool threesig = false;
+	bool time_high = false;
+
+	std::size_t t0 = 1024;
+	// Iterate over time slices
+	for(std::size_t t = t0; t < record_len; t++) {
+
+	  // Inside, iterate over frequency
+	  for(std::size_t f = bin10MHz; f < bin100MHz; f++) {
+	    bool time_disc = false;
+
+	    // If any bin in the time slice is high, fire the inner discriminator
+	    if(std::norm(tfr[t][f]) >= 3.0*thresh[f].second) {
+	      time_disc = true;
+	    }
+
+	    // If both the inner discriminator and the outer discriminator are high,
+	    // we multiply the probability by the three sigma increment.
+	    if( (time_disc & threesig) == true ) {
+	      probacc *= 0.003;
+	      // If probacc has fallen below threshold, make some noise.  If we've 
+	      // alredy made noise, don't make any more.
+	      if(probacc < probdisc) {
+		if( time_disc == false ) {
+		  std::cout << "***Event #" << evt << " passes cut at t=" << t << std::endl;
+		  time_high = true;
+		}
+	      }
+	    } // time_disc & threesig
+
+	    // If time_disc is true but threesig is false, set threesig to true. 
+	    // Otherwise, if time_disc is false but threesig is true, set threesig
+	    // to false.  Basically set threesig to the state of time_disc.
+	    else {
+	      threesig = time_disc;
+	      // If the time discriminator was high, report that we went low and
+	      // set it to false.
+	      if(time_high == true) {
+		std::cout << "***Event fails cut at t=" << t << std::endl;;
+	      }
+	    } // sync threesig to time_disc
+
+	  } // for loop over frequency
+	} // for loop over time
+
        
 	// Increment the event counter.
 	evt++;
-      } // if(io)
+
+      } // while populate
       
-    }
+    } // if(io)
 
     // Otherwise opening the file barfed.  Exit ungracefully.
     else {
@@ -140,7 +215,7 @@ int main(int argc, char** argv) {
       res = exit_io_failed;
     }
    
-  }
+  } 
   return res;
 }
 
