@@ -152,51 +152,75 @@ int main(int argc, char** argv) {
 	// level discriminator.  P' is (0.003)^(f_s*t) where f_s is the sampling
 	// frequency and t is a time constant.  This is now a probability for 
 	// any bin to be high for some time t given a sampling frequency f_s.
-	double probacc = 0.0;
-	double probdisc = nyquist_f*30.0e-6;
+	double probacc = 1.0;
+	double probdisc = 0.3;
 	bool threesig = false;
 	bool time_high = false;
+	std::size_t highfor=0, fired_at=0;
 
 	std::size_t t0 = 1024;
 	// Iterate over time slices
 	for(std::size_t t = t0; t < record_len; t++) {
-
+	  bool time_disc = false;
 	  // Inside, iterate over frequency
 	  for(std::size_t f = bin10MHz; f < bin100MHz; f++) {
-	    bool time_disc = false;
-
 	    // If any bin in the time slice is high, fire the inner discriminator
 	    if(std::norm(tfr[t][f]) >= 3.0*thresh[f].second) {
 	      time_disc = true;
 	    }
-
-	    // If both the inner discriminator and the outer discriminator are high,
-	    // we multiply the probability by the three sigma increment.
-	    if( (time_disc & threesig) == true ) {
-	      probacc *= 0.003;
-	      // If probacc has fallen below threshold, make some noise.  If we've 
-	      // alredy made noise, don't make any more.
-	      if(probacc < probdisc) {
-		if( time_disc == false ) {
-		  std::cout << "***Event #" << evt << " passes cut at t=" << t << std::endl;
-		  time_high = true;
-		}
-	      }
-	    } // time_disc & threesig
-
-	    // If time_disc is true but threesig is false, set threesig to true. 
-	    // Otherwise, if time_disc is false but threesig is true, set threesig
-	    // to false.  Basically set threesig to the state of time_disc.
-	    else {
-	      threesig = time_disc;
-	      // If the time discriminator was high, report that we went low and
-	      // set it to false.
-	      if(time_high == true) {
-		std::cout << "***Event fails cut at t=" << t << std::endl;;
-	      }
-	    } // sync threesig to time_disc
-
+	    // If we fired, record the time, UNLESS threesig is high, in which case
+	    // forget it.
+	    if( time_disc == true && threesig == false ) {
+	      fired_at = t;
+	    }
 	  } // for loop over frequency
+
+	  // If both the inner discriminator and the outer discriminator are high,
+	  // we multiply the probability by the three sigma increment.
+	  if( (time_disc & threesig) == true ) {
+	    probacc *= (1.0 - 0.003);
+	    // If probacc has fallen below threshold, make some noise.  If we've 
+	    // alredy made noise, don't make any more.
+	    if(probacc < probdisc) {
+	      if( time_high == false ) {
+		std::cout << "***Event #" << evt 
+			  << " passes cut at t=" << t 
+			  << "(p = "
+			  << probacc
+			  << ")"
+			  << std::endl;
+		time_high = true;
+		highfor = t;
+	      } 
+	    }
+	  } // time_disc & threesig
+	  
+	  // If time_disc is true but threesig is false, set threesig to true. 
+	  // Otherwise, if time_disc is false but threesig is true, set threesig
+	  // to false.  Basically set threesig to the state of time_disc.
+	  else {
+	    threesig = time_disc;
+
+	    // If the time disciminator is high, then threesig was low, and 
+	    // we start counting.
+	    if(time_disc == true) {
+	      probacc = 1.0;
+	    }
+
+	    // If the time discriminator was high, report that we went low and
+	    // set it to false.
+	    if((time_disc == false) && (time_high == true)) {
+	      std::cout << "***Event fails cut at t=" 
+			<< t 
+			<< "(high for: "
+			<< t - fired_at
+			<< ")"
+			<< std::endl;
+	      time_high = false;
+	      probacc = 1.0;
+	    }
+	  } // sync threesig to time_disc
+
 	} // for loop over time
 
        
