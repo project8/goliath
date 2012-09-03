@@ -32,14 +32,22 @@ int glth::glth_xfrmr::irem( double x, double y)
   return result;
 }
 
-void glth::glth_xfrmr::wvd(glth::signal tgt, std::complex<double>** out) 
+void glth::glth_xfrmr::wvd(glth::signal tgt, 
+			   glth::tfr_data* out) 
+{
+  return this->xwvd(tgt,tgt,out);
+}
+
+void glth::glth_xfrmr::xwvd(glth::signal tgt1, 
+			    glth::signal tgt2,
+			    glth::tfr_data* out) 
 {
   int tau, taumax;
-  int siglen = tgt.size();
+  int siglen = tgt1.size();
 
-  glth::signal tgt_star(tgt.size());
+  glth::signal tgt2_star(tgt2.size());
   for(int i = 0; i < siglen; i++) {
-    tgt_star[i] = std::conj(tgt[i]);
+    tgt2_star[i] = std::conj(tgt2[i]);
   }
 
   //#pragma omp for private(tau)
@@ -51,17 +59,17 @@ void glth::glth_xfrmr::wvd(glth::signal tgt, std::complex<double>** out)
 
     for(tau = -taumax; tau <= taumax; tau++) {
       int row = irem(_freq_res + tau, _freq_res);
-      _in[row] = (tgt[t + tau])*(tgt_star[t - tau]);
+      _in[row] = (tgt1[tau])*(tgt2_star[t - tau]);
     }
 
     tau = floor(_freq_res/2);
     if((t <= (siglen - tau - 1)) && (t >= tau)) {
-      _in[t] =0.5*(tgt[t + tau])*(tgt_star[t - tau]) + 
-	(tgt[t - tau])*(tgt_star[t + tau]);
+      _in[t] =0.5*(tgt1[tau])*(tgt2_star[t - tau]) + 
+	(tgt1[tau])*(tgt2_star[t + tau]);
     }
 
     fftw_execute_dft(_fwd_plan,
 		     reinterpret_cast<fftw_complex*>(_in), 
-		     reinterpret_cast<fftw_complex*>(out[t]));
+		     reinterpret_cast<fftw_complex*>((*out)[t]));
   }
 }
