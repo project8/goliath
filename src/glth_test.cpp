@@ -132,7 +132,7 @@ int main(const int argc, char** argv) {
 
   }
 
-   xfm.wvd(sig, wvd);
+  //   xfm.wvd(sig, wvd);
 
    // scan for min and max
    // double min, max;
