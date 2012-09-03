@@ -4,6 +4,8 @@
 #include <string>
 #include "Monarch.hpp"
 #include "glth_const.hpp"
+#include "glth_signal.hpp"
+#include "glth_px1500.hpp"
 
 namespace glth {
 
@@ -20,6 +22,12 @@ namespace glth {
     static io* open_file(std::string filename);
     std::size_t get_record_length() const;
     std::size_t get_record_length();
+
+    const Monarch const* get_monarch_ptr();
+    const Monarch const* get_monarch_ptr() const;
+
+    glth_const::io_result populate(signal* ch1, signal* ch2);
+    
   }; // class io
 
 }; // namespace glth
