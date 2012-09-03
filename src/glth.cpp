@@ -5,6 +5,7 @@
 #include "glth_signal.hpp"
 #include "glth_tfr_data.hpp"
 #include "glth_xfrmr.hpp"
+#include "glth_candidate.hpp"
 
 using glth::env;
 using glth::io;
@@ -153,10 +154,13 @@ int main(int argc, char** argv) {
 	// frequency and t is a time constant.  This is now a probability for 
 	// any bin to be high for some time t given a sampling frequency f_s.
 	double probacc = 1.0;
-	double probdisc = 0.3;
+	double probdisc = 0.01;
 	bool threesig = false;
 	bool time_high = false;
 	std::size_t highfor=0, fired_at=0;
+
+	// This is our list of candidates.
+	std::vector<glth::candidate> cs;
 
 	std::size_t t0 = 1024;
 	// Iterate over time slices
@@ -210,7 +214,7 @@ int main(int argc, char** argv) {
 	    // If the time discriminator was high, report that we went low and
 	    // set it to false.
 	    if((time_disc == false) && (time_high == true)) {
-	      std::cout << "***Event fails cut at t=" 
+	      std::cout << "***Event falls below threshold at t=" 
 			<< t 
 			<< "(high for: "
 			<< t - fired_at
@@ -218,11 +222,11 @@ int main(int argc, char** argv) {
 			<< std::endl;
 	      time_high = false;
 	      probacc = 1.0;
+	      cs.push_back(glth::candidate(fired_at, t, evt));
 	    }
 	  } // sync threesig to time_disc
 
 	} // for loop over time
-
        
 	// Increment the event counter.
 	evt++;
