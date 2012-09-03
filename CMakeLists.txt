@@ -50,7 +50,7 @@ include_directories(${FFTW_INCLUDE_DIR})
 set (LIBS ${LIBS} ${FFTW_LIBRARY})
 
 # let's be fancy!
-set( CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
+set( CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 
 # monarch pls
 include_directories("deps/monarch/include" "deps/monarch")
@@ -73,6 +73,7 @@ set (GOLIATH_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_xfrmr.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_io.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_env.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_tfr_data.hpp
 )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -81,6 +82,7 @@ set (GOLIATH_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_xfrmr.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_io.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_env.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_tfr_data.cpp
 )
 
 # Generate the Protocol Buffers cpp file
