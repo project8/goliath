@@ -8,9 +8,13 @@ namespace glth_const {
     exit_io_failed = 2
   } exit_status;
 
-  enum io_result {
-    io_success = 0
-  };
+  typedef enum {
+    io_success = 0,
+    io_read_ok = 1,
+    io_read_badarray = 2,
+    io_eof = 3,
+    io_channel_err = 4
+  } io_result;
 
   typedef enum {
     env_success = 0,
