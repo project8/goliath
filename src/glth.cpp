@@ -151,17 +151,37 @@ int main(int argc, char** argv) {
 	// Now traverse the XWVD from bin 1024 on.  At each time slice, inspect
 	// each bin in the bandpass of the receiver and check if it is at the 
 	// 3 sigma level or higher (this is an arbitrary choice for now, this
-	// should really be an option).  If it is, set a flag that a discriminator
-	// was high.  There is, of course, a 0.3% chance for a bin to randomly 
-	// fluctuate to 3 sigma, and so a 0.3% chance for *any* of the N bins inside
-	// the bandpass to be high.  So for *any* bin to be high for M time slices
-	// in a row, we have P = (0.003)^M.  This can be used as another kind of 
-	// detection threshold: once you've observed a P < P' event, fire the top 
-	// level discriminator.  P' is (0.003)^(f_s*t) where f_s is the sampling
-	// frequency and t is a time constant.  This is now a probability for 
-	// any bin to be high for some time t given a sampling frequency f_s.
-	double probacc = 1.0;
-	double probdisc = 0.01;
+	// should really be an option).  If it is, set the bit in the frequency
+	// discriminator corresponding to that bin to high.  In addition, check
+	// the nearest neighbors of the frequency in the discriminator values
+	// for the previous time slice.  If they are high, then multiply an
+	// accumulator(prob_acc) by the probability of random occurrence (rand_prob):
+	// P(random) = P(bin is high) && P(at least one of previous bins is high)
+	// P(random) = disc_thresh*(1 - P(none of previous bins are high))
+	// P(random) = disc_thresh*(1 - (1-disc_thresh)^N)
+	// In addition, we set a bit that indicates we think that an event may be
+	// forming(ev_trig), and record the time that this happened(t_trig).
+	// Should the value of the accumulator fall below a threshold,
+	// we set a bit that indicates that an event is detected(ev_det), 
+	// record the
+
+	// The random probability as above.
+	int n_neighbors = 3;
+	double rand_thresh = 0.003; // Probability of being three sigma
+	double rand_prob = rand_thresh*(1 - pow((1-rand_thresh),2*n_neighbors + 1));
+
+	// The discriminator banks.
+	discriminator f_disc(nbins), f_disc_last(nbins), t_disc(record_len);
+
+	// The trigger bools.
+	bool ev_trig(false), ev_det(false);
+
+	// Time that the event was triggered at.
+	std::size_t trig_init_t = 0;
+
+	// The probability accumulator and threshold.
+	double prob_acc = 1.0;
+	double prob_thresh = 0.01;
 	bool threesig = false;
 	bool time_high = false;
 	std::size_t highfor=0, fired_at=0;
@@ -175,70 +195,70 @@ int main(int argc, char** argv) {
 	  // Temporary variable for power
 	  double norm_pwr(0.0);
 
+	  // A temporary that indicates that a frequency discriminator fired
+	  // at this time slice.
 	  bool time_disc = false;
+
 	  // Inside, iterate over frequency
 	  for(std::size_t f = bin10MHz; f < bin100MHz; f++) {
+	    // Precalculate norm of bin
 	    norm_pwr = std::norm(tfr[t][f]);
-	    // If any bin in the time slice is high, fire the inner discriminator
+
+	    // If any bin in the time slice is high, record the frequency as high
 	    if(norm_pwr >= 3.0*thresh[f].second) {
 	      time_disc = true;
+	      f_disc[f] = true;
 	    }
+
 	    // Check the value against the maximum.
 	    if(norm_pwr > max) max = norm_pwr;
 
-	    // If we fired, record the time, UNLESS threesig is high, in which case
-	    // forget it.
-	    if( time_disc == true && threesig == false ) {
-	      fired_at = t;
-	    }
+	    // Check if neighboring bins in the previous time slice were high, and
+	    // if they were, record the time that this happened (unless we already
+	    // suspect an event is forming)
+	    if( f_disc_last.any(f-3,f+3) ) {
+	      // If ev_trig hasn't been fired, fire it.
+	      if(ev_trig == false) {
+		trig_init_t = t;
+		ev_trig = true;
+	      }
+	      prob_acc *= rand_prob;
+	    } // nearest neighbor search
 	  } // for loop over frequency
 
-	  // If both the inner discriminator and the outer discriminator are high,
-	  // we multiply the probability by the three sigma increment.
-	  if( (time_disc & threesig) == true ) {
-	    probacc *= (1.0 - 0.003);
-	    // If probacc has fallen below threshold, make some noise.  If we've 
-	    // alredy made noise, don't make any more.
-	    if(probacc < probdisc) {
-	      if( time_high == false ) {
-		std::cout << "***Event #" << evt 
-			  << " passes cut at t=" << t 
-			  << "(p = "
-			  << probacc
-			  << ")"
-			  << std::endl;
-		time_high = true;
-		highfor = t;
-	      } 
-	    }
-	  } // time_disc & threesig
+	  // If the probability accumulator has fallen below threshold, then we
+	  // declare that we detected something!
+	  if( (prob_acc < prob_thresh) && (ev_det == false) ) {
+	    std::cout << "***Event #" << evt 
+		      << " passes cut at t=" << t 
+		      << "(p < "
+		      << prob_thresh
+		      << ")"
+		      << std::endl;
+	    ev_det = true;
+	    highfor = t;
+	  }
 	  
-	  // If time_disc is true but threesig is false, set threesig to true. 
-	  // Otherwise, if time_disc is false but threesig is true, set threesig
-	  // to false.  Basically set threesig to the state of time_disc.
-	  else {
-	    threesig = time_disc;
+	  // If we are currently in detection mode (i.e. ev_det is high), but
+	  // we didn't see anything interesting in this time slice (i.e. 
+	  // ev_trig is low), then we declare the event is over.  
+	  // store the information about it, reset all of the counters
+	  // and triggers, and move on.
+	  if( (ev_det == true) && (ev_trig == false) ) {
+	    std::cout << "***Event #" << evt
+		      << " falls below threshold at t=" << t
+		      << " duration="
+		      << fired_at - t
+		      << std::endl;
+	    
+	    cs.push_back(glth::candidate(fired_at, t, evt));
 
-	    // If the time disciminator is high, then threesig was low, and 
-	    // we start counting.
-	    if(time_disc == true) {
-	      probacc = 1.0;
-	    }
+	    // Drop the event detection bool.
+	    ev_det = false;
 
-	    // If the time discriminator was high, report that we went low and
-	    // set it to false.
-	    if((time_disc == false) && (time_high == true)) {
-	      std::cout << "***Event falls below threshold at t=" 
-			<< t 
-			<< "(high for: "
-			<< t - fired_at
-			<< ")"
-			<< std::endl;
-	      time_high = false;
-	      probacc = 1.0;
-	      cs.push_back(glth::candidate(fired_at, t, evt));
-	    }
-	  } // sync threesig to time_disc
+	    // Reset the probability accumulator.
+	    prob_acc = 1.0;
+	  }
 
 	} // for loop over time
 
