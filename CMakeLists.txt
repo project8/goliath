@@ -53,8 +53,8 @@ set (LIBS ${LIBS} ${FFTW_LIBRARY})
 set( CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 
 # monarch pls
-include_directories("deps/monarch/include" "deps/monarch")
-link_directories("deps/monarch/lib")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/include")
+link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/lib")
 
 ##############
 # Build things
@@ -100,8 +100,8 @@ set (GOLIATH_SOURCE_FILES
 
 # Build the test executable
 add_executable (glth ${CMAKE_CURRENT_SOURCE_DIR}/src/glth.cpp ${GOLIATH_SOURCE_FILES})
-target_link_libraries(glth monarch ${LIBS})
+target_link_libraries(glth MonarchCore ${LIBS})
 add_executable (glth_test ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_test.cpp ${GOLIATH_SOURCE_FILES})
-target_link_libraries(glth_test monarch ${LIBS})
+target_link_libraries(glth_test MonarchCore ${LIBS})
 
 install (TARGETS DESTINATION ${BIN_INSTALL_DIR})

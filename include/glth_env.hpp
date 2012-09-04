@@ -2,6 +2,8 @@
 #define __glth_env_hpp
 
 #include <string>
+#include <stdint.h>
+
 #include "glth_const.hpp"
 
 namespace glth {
