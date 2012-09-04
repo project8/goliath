@@ -76,6 +76,7 @@ set (GOLIATH_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_tfr_data.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_candidate.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_color.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_discrim.hpp
 )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -87,6 +88,7 @@ set (GOLIATH_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_tfr_data.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_candidate.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_color.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_discrim.cpp
 )
 
 # Generate the Protocol Buffers cpp file
