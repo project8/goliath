@@ -6,10 +6,14 @@
 #include "glth_tfr_data.hpp"
 #include "glth_xfrmr.hpp"
 #include "glth_candidate.hpp"
+#include "glth_color.hpp"
+#include <cv.h>
+#include <highgui.h>
 
 using glth::env;
 using glth::io;
 using glth::tfr_data;
+using glth::candidate;
 using namespace glth_const;
 
 // For statistics and all
@@ -102,6 +106,9 @@ int main(int argc, char** argv) {
 	bin10MHz = 10.0e6/freq_res;
 	bin100MHz = 100.0e6/freq_res;
 
+	// In addition, we care about the maximum power in the event.
+	double max(0.0);
+
 	std::cout << "**Calculating event threshold between bins " 
 		  << bin10MHz
 		  << " and "
@@ -160,18 +167,25 @@ int main(int argc, char** argv) {
 	std::size_t highfor=0, fired_at=0;
 
 	// This is our list of candidates.
-	std::vector<glth::candidate> cs;
+	std::vector<candidate> cs;
 
 	std::size_t t0 = 1024;
 	// Iterate over time slices
 	for(std::size_t t = t0; t < record_len; t++) {
+	  // Temporary variable for power
+	  double norm_pwr(0.0);
+
 	  bool time_disc = false;
 	  // Inside, iterate over frequency
 	  for(std::size_t f = bin10MHz; f < bin100MHz; f++) {
+	    norm_pwr = std::norm(tfr[t][f]);
 	    // If any bin in the time slice is high, fire the inner discriminator
-	    if(std::norm(tfr[t][f]) >= 3.0*thresh[f].second) {
+	    if(norm_pwr >= 3.0*thresh[f].second) {
 	      time_disc = true;
 	    }
+	    // Check the value against the maximum.
+	    if(norm_pwr > max) max = norm_pwr;
+
 	    // If we fired, record the time, UNLESS threesig is high, in which case
 	    // forget it.
 	    if( time_disc == true && threesig == false ) {
@@ -227,6 +241,34 @@ int main(int argc, char** argv) {
 	  } // sync threesig to time_disc
 
 	} // for loop over time
+
+	/*
+	 * Now we have a list of candidates for this event.  We want to iterate
+	 * over them, find a sensible packing, and then write that data to file
+	 * so that humans can look at it.  Our iterator should be aligned at the
+	 * first candidate that belongs to the current event.
+	 */
+	std::size_t c_idx(0);
+	std::vector<candidate>::iterator cs_it;
+	for( cs_it = cs.begin(); cs_it != cs.end(); cs_it++ ) {
+	  glth::span idcs = (*cs_it).get_time_span();
+	  std::size_t range = idcs.second - idcs.first;
+	  cv::Mat out(nbins, range, CV_8UC3, cv::Scalar(0,0,0));
+
+	  // Iterate and write.
+	  for(std::size_t time = 0; time < range; time++) {
+	    for(std::size_t freq = 0; freq < nbins; freq++) {
+	      out.at<cv::Vec3b>((nbins - 1) - freq,time) = glth::jet(std::norm(tfr[time + idcs.first][freq]),max);
+	    }
+	  }
+
+	  // Now write it.
+	  std::stringstream fname;
+	  fname << "glth_out" << c_idx << ".png";
+	  cv::imwrite(fname.str(), out);
+	  
+	  c_idx++;
+	}
        
 	// Increment the event counter.
 	evt++;
