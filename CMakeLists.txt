@@ -54,7 +54,7 @@ set( CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 
 # monarch pls
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/include")
-link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/lib")
+link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/Install/lib")
 
 ##############
 # Build things
