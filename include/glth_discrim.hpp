@@ -10,16 +10,16 @@
  * using the any(low,high) function.
  */
 
-#include <vector>
+#include <deque>
 
 namespace glth {
 
   class discriminator {
   private:
-    std::vector<bool> _bank;
+    std::deque<bool> _bank;
   public:
     discriminator(std::size_t);
-    bool operator[](std::size_t index);
+    bool& operator[](std::size_t index);
     bool any(std::size_t low, std::size_t high);
   }; // class discriminator
 
