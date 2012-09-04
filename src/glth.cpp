@@ -7,6 +7,7 @@
 #include "glth_xfrmr.hpp"
 #include "glth_candidate.hpp"
 #include "glth_color.hpp"
+#include "glth_discrim.hpp"
 #include <cv.h>
 #include <highgui.h>
 
@@ -14,6 +15,7 @@ using glth::env;
 using glth::io;
 using glth::tfr_data;
 using glth::candidate;
+using glth::discriminator;
 using namespace glth_const;
 
 // For statistics and all
@@ -163,7 +165,8 @@ int main(int argc, char** argv) {
 	// forming(ev_trig), and record the time that this happened(t_trig).
 	// Should the value of the accumulator fall below a threshold,
 	// we set a bit that indicates that an event is detected(ev_det), 
-	// record the
+	// record the point where it does, and once the search stops finding
+	// correlated bins, we record it as a candidate.
 
 	// The random probability as above.
 	int n_neighbors = 3;
@@ -178,13 +181,11 @@ int main(int argc, char** argv) {
 
 	// Time that the event was triggered at.
 	std::size_t trig_init_t = 0;
+	std::size_t fired_at=0;
 
 	// The probability accumulator and threshold.
 	double prob_acc = 1.0;
 	double prob_thresh = 0.01;
-	bool threesig = false;
-	bool time_high = false;
-	std::size_t highfor=0, fired_at=0;
 
 	// This is our list of candidates.
 	std::vector<candidate> cs;
@@ -205,7 +206,7 @@ int main(int argc, char** argv) {
 	    norm_pwr = std::norm(tfr[t][f]);
 
 	    // If any bin in the time slice is high, record the frequency as high
-	    if(norm_pwr >= 3.0*thresh[f].second) {
+	    if(norm_pwr >= (thresh[f].first + 3.0*thresh[f].second)) {
 	      time_disc = true;
 	      f_disc[f] = true;
 	    }
@@ -216,14 +217,20 @@ int main(int argc, char** argv) {
 	    // Check if neighboring bins in the previous time slice were high, and
 	    // if they were, record the time that this happened (unless we already
 	    // suspect an event is forming)
-	    if( f_disc_last.any(f-3,f+3) ) {
+	    if( f_disc_last.any(f-n_neighbors,f+n_neighbors) ) {
 	      // If ev_trig hasn't been fired, fire it.
 	      if(ev_trig == false) {
 		trig_init_t = t;
 		ev_trig = true;
 	      }
-	      prob_acc *= rand_prob;
+	      prob_acc *= (1.0 - rand_prob);
 	    } // nearest neighbor search
+
+	    // Otherwise the nearest neighbor search failed.
+	    else {
+	      ev_trig = false;
+	      prob_acc = 1.0;
+	    }
 	  } // for loop over frequency
 
 	  // If the probability accumulator has fallen below threshold, then we
@@ -236,7 +243,6 @@ int main(int argc, char** argv) {
 		      << ")"
 		      << std::endl;
 	    ev_det = true;
-	    highfor = t;
 	  }
 	  
 	  // If we are currently in detection mode (i.e. ev_det is high), but
@@ -260,7 +266,22 @@ int main(int argc, char** argv) {
 	    prob_acc = 1.0;
 	  }
 
+	  // Set the last frequency discriminator to the current one.
+	  f_disc_last = f_disc;
 	} // for loop over time
+
+	// It may be the case that we wind up at the end of the event
+	// and the discriminator never went below threshold!  In that case,
+	// add whatever is in the discriminator as an event.
+	if( (ev_det == true) ) {
+	  std::cout << "***Event #" << evt
+		    << " ended with high trigger. "
+		    << "Adding to candidate list: "
+		    << "duration: "
+		    << (record_len -1) - fired_at
+		    << std::endl;
+	  cs.push_back(glth::candidate(fired_at, record_len - 1, evt));
+	}
 
 	/*
 	 * Now we have a list of candidates for this event.  We want to iterate
