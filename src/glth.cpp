@@ -258,13 +258,17 @@ int main(int argc, char** argv) {
 	  // Iterate and write.
 	  for(std::size_t time = 0; time < range; time++) {
 	    for(std::size_t freq = 0; freq < nbins; freq++) {
-	      out.at<cv::Vec3b>((nbins - 1) - freq,time) = glth::jet(std::norm(tfr[time + idcs.first][freq]),max);
+	      out.at<cv::Vec3b>((nbins - 1) - freq,time) =
+		glth::jet(std::norm(tfr[time + idcs.first][freq]),max);
 	    }
 	  }
 
 	  // Now write it.
 	  std::stringstream fname;
-	  fname << "glth_out" << c_idx << ".png";
+	  fname << "glth_out_" 
+		<< env->get_in_filename()
+		<< "_"
+		<< c_idx << ".png";
 	  cv::imwrite(fname.str(), out);
 	  
 	  c_idx++;
