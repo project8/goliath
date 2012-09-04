@@ -12,3 +12,6 @@ glth_test
 frame/
 deps/
 deps/*
+*.egg
+#*
+*#
