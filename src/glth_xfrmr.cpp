@@ -73,3 +73,40 @@ void glth::glth_xfrmr::xwvd(glth::signal tgt1,
 		     reinterpret_cast<fftw_complex*>((*out)[t]));
   }
 }
+
+void glth::glth_xfrmr::xwvd_slice(glth::signal tgt1, 
+				  glth::signal tgt2,
+				  glth::signal* out,
+				  int t) 
+{
+  int tau, taumax;
+  int siglen = tgt1.size();
+
+  // Precompute the complex conjugate of the second signal.
+  glth::signal tgt2_star(tgt2.size());
+  for(int i = 0; i < siglen; i++) {
+    tgt2_star[i] = std::conj(tgt2[i]);
+  }
+
+  // Calculate the lagged correlation between the two
+  // signals at time t.
+  
+  // How large in tau should we go?
+  taumax = (t < (siglen - t - 1)) ? t : (siglen - t - 1);
+  taumax = (taumax < (_freq_res/2 - 1)) ? taumax : (_freq_res/2 - 1);
+    
+  for(tau = -taumax; tau <= taumax; tau++) {
+    int row = irem(_freq_res + tau, _freq_res);
+    _in[row] = (tgt1[tau])*(tgt2_star[t - tau]);
+  }
+  
+  tau = floor(_freq_res/2);
+  if((t <= (siglen - tau - 1)) && (t >= tau)) {
+    _in[t] =0.5*(tgt1[tau])*(tgt2_star[t - tau]) + 
+      (tgt1[tau])*(tgt2_star[t + tau]);
+  }
+  
+  fftw_execute_dft(_fwd_plan,
+		   reinterpret_cast<fftw_complex*>(_in), 
+		   reinterpret_cast<fftw_complex*>(out)); 
+}
