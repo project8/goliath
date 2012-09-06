@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
 	// It may be the case that we wind up at the end of the event
 	// and the discriminator never went below threshold!  In that case,
 	// add whatever is in the discriminator as an event.
-	if( (ev_det == true) ) {
+	if( ev_det == true ) {
 	  std::cout << "***Event #" << evt
 		    << " ended with high trigger. "
 		    << "Adding to candidate list: "
