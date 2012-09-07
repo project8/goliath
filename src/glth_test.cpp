@@ -1,173 +1,178 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
-//#include <tr1/random>
+
+#include "glth_io.hpp"
+#include "glth_env.hpp"
+#include "glth_signal.hpp"
+#include "glth_tfr_data.hpp"
+#include "glth_xfrmr.hpp"
+#include "glth_candidate.hpp"
+#include "glth_color.hpp"
+#include "glth_discrim.hpp"
+
 #include <cv.h>
 #include <highgui.h>
-#include "glth_xfrmr.hpp"
 
-/******************************************************************************/
-//        "Polar" version without trigonometric calls
-double randn_notrig(double mu=0.0, double sigma=1.0) {
-  static bool deviateAvailable=false;        //        flag
-  static float storedDeviate;                        //        deviate from previous calculation
-  double polar, rsquared, var1, var2;
-
-  //        If no deviate has been stored, the polar Box-Muller transformation is
-  //        performed, producing two independent normally-distributed random
-  //        deviates.  One is stored for the next round, and one is returned.
-  if (!deviateAvailable) {
-
-    //        choose pairs of uniformly distributed deviates, discarding those
-    //        that don't fall within the unit circle
-    do {
-      var1=2.0*( double(rand())/double(RAND_MAX) ) - 1.0;
-      var2=2.0*( double(rand())/double(RAND_MAX) ) - 1.0;
-      rsquared=var1*var1+var2*var2;
-    } while ( rsquared>=1.0 || rsquared == 0.0);
-
-    //        calculate polar tranformation for each deviate
-    polar=sqrt(-2.0*log(rsquared)/rsquared);
-
-    //        store first deviate and set flag
-    storedDeviate=var1*polar;
-    deviateAvailable=true;
-
-    //        return second deviate
-    return var2*polar*sigma + mu;
-  }
-
-  //        If a deviate is available from a previous call to this function, it is
-  //        returned, and the flag is set to false.
-  else {
-    deviateAvailable=false;
-    return storedDeviate*sigma + mu;
-  }
-}
-
-template <typename T>
-T min(T arg1, T arg2) {
-  T res = (arg1 < arg2) ? arg1 : arg2;
-  return res;
-}
-
-cv::Vec3b JetColour(double v,double vmax)
+template< typename T >
+T min( T arg1, T arg2 )
 {
-  double scale = vmax/4.0;
-  unsigned char mid = 144;
-  unsigned char red, blue, green;
-
-  if( v < scale ) {
-    blue = mid+(char)((255-mid)*v/vmax);
-    red = green = 0;
-  }
-  else if( v < 2*scale ) {
-    red=0;
-    green=(unsigned char)(255*(v-scale)/scale);
-    blue=255;
-  }
-  else if( v < 3*scale ) {
-    red=(unsigned char)(255*(v-2*scale)/scale);
-    green=255;
-    blue=255-red;
-  }
-  else if( v < vmax ) {
-    red=255;
-    green=(unsigned char)(255-255*(v-3*scale)/scale);
-    blue=0;
-  }
-  else {
-    red = blue = green = 0;
-  }
-
-  return(cv::Vec3b(blue,green,red));
+    T res = (arg1 < arg2) ? arg1 : arg2;
+    return res;
 }
 
-int main(const int argc, char** argv) {
-  // Random number generation
-  //  std::tr1::mt19937 prng(0);
-  //  std::tr1::normal_distribution<double> normal;
-  //  std::tr1::variate_generator<std::tr1::mt19937,std::tr1::normal_distribution<double>> randn(prng,normal);
+std::size_t next_po2( double arg )
+{
+    int res = pow( 2, ceil( log2( arg ) ) );
+    return (std::size_t) res;
+}
 
-  // Constant
-  double pi = 3.14159;
+cv::Vec3b JetColour( double v, double vmax )
+{
+    double scale = vmax / 4.0;
+    unsigned char mid = 144;
+    unsigned char red, blue, green;
 
-  // Data
-  std::size_t siglen = 4096;
-  glth::signal sig(siglen);
-  int fftlen = 2048;
-  glth::glth_xfrmr xfm(siglen, fftlen);
+    if( v < scale )
+    {
+        blue = mid + (char) ((255 - mid) * v / vmax);
+        red = green = 0;
+    }
+    else if( v < 2 * scale )
+    {
+        red = 0;
+        green = (unsigned char) (255 * (v - scale) / scale);
+        blue = 255;
+    }
+    else if( v < 3 * scale )
+    {
+        red = (unsigned char) (255 * (v - 2 * scale) / scale);
+        green = 255;
+        blue = 255 - red;
+    }
+    else if( v < vmax )
+    {
+        red = 255;
+        green = (unsigned char) (255 - 255 * (v - 3 * scale) / scale);
+        blue = 0;
+    }
+    else
+    {
+        red = blue = green = 0;
+    }
 
-  std::complex<double> **wvd = new std::complex<double>*[siglen];
-  for(std::size_t i = 0; i < siglen; i++) {
-    wvd[i] = new std::complex<double>[fftlen];
-  }
+    return (cv::Vec3b( blue, green, red ));
+}
 
+using namespace glth;
 
-  // By default we have succeeded.
-  glth_const::exit_status res = glth_const::exit_success;
+int main( const int argc, char** argv )
+{
+    // OK now parse the arguments passed by the user and
+    // verify that they are sensible.
+    env const* env = env::env_from_args( argc, argv );
 
-  // Make two signals and XWVD them.
-  float freq_0 = 30e6;
-  float pitch_angle = 90;
-  float power_loss = 1.0e-15;  // Watts
-  float energy_0 = 18e3; // keV
-  float zmax = 1.0; // meters
-  float warble = 1.0e2; // axial frequency
-  float phase_v = 1.0; //299792458; // phase velocity, approx at c for now
-  float gamma_0 = 1 + energy_0/511;
-  //  float chirp_rate = power_loss/(gamma_0 * 8.18e-14);
-  float chirp_rate = 10e4;
-  float sample_rate = 250e6;
-  float t = 0;
+    if( env::verify( *env ) != glth_const::env_success )
+    {
+        std::cout << "  **failed to create valid environment!" << std::endl;
+        return glth_const::exit_env_failed;
+    }
 
-  for(int idx = 0; idx < siglen; idx++) {
-    t = idx/sample_rate;
-    double phase = freq_0*t*
-      ((1 + 0.5*cos(pitch_angle)*cos(pitch_angle)/(sin(pitch_angle)*sin(pitch_angle))) +
-       chirp_rate*t +
-       zmax*warble/phase_v*cos(warble*t));
-    std::complex<double> noise = std::complex<double>(randn_notrig(0.0,1.0),randn_notrig(0.0,1.0));
-       sig[idx][0] += cos(2*pi*phase);
-       sig[idx][1] += sin(2*pi*phase);
+    else
+    {
+        // Our pointer to the IO object which gets our data for us
+        io* io = io::open_file( env->get_in_filename() );
 
-  }
+        // Signals!
+        std::size_t record_len = (io->get_record_length());
+        std::cout << "**Record length: " << record_len << std::endl;
+        std::cout << "**Allocating channel signals" << std::endl;
 
-  //   xfm.wvd(sig, wvd);
+        glth::signal ch1( record_len ), ch2( record_len );
 
-   // scan for min and max
-   // double min, max;
-   // for(int i = 0; i < siglen; i++) {
-   //   for(int j = 0; j < fftlen; j++) {
-   //     //       wvd[i][j] = log10(wvd[i][j]);
-   //     if( std::norm(wvd[i][j]) > max ) max = std::norm(wvd[i][j]);
-   //     else if( std::norm(wvd[i][j]) < min ) min = std::norm(wvd[i][j]);
-   //   }
-   // }
+        // IO being a valid pointer means we're in business.
+        if( io )
+        {
+            // An event counter
+            std::size_t evt = 0;
 
-   // cv::Mat out_matrix(fftlen, siglen, CV_8UC3, cv::Scalar(0,0,0));
-   // for(int t = 0; t < siglen; t++) {
-   //   for(int f = 0; f < fftlen; f++) {
-   //     out_matrix.at<cv::Vec3b>((fftlen - 1) - f,t) = JetColour(std::norm(wvd[t][f]),max);
-   //   }
-   // }
+            // Create a TFR data object to hold the result of our
+            // WVD.  This object will get reused for analysis on each event.
+            // But how do we know how many frequency bins we need?  We use the
+            // Nyquist rate from the header and our desired frequency resolution,
+            // which in this case is hard coded at 30kHz.  We find the next highest
+            // power of two and that's our binning.
+            double nyquist_f = (io->get_monarch_ptr()->GetHeader()->GetAcqRate()) / 2.0;
+            std::cout << "*Nyquist frequency is " << nyquist_f << "MHz" << std::endl;
 
-   // std::vector<cv::Vec4i> lines;
-   // cv::Mat hgh_matrix = out_matrix.clone();
-   // cv::Canny(out_matrix, hgh_matrix, 100, 200, 3);
-   // cv::HoughLinesP( hgh_matrix, lines, 1, CV_PI/180, 200, 100, 20);
-   // cv::Mat lin_matrix = out_matrix.clone();
+            double freq_res = 30.0e3;
+            std::size_t nbins = next_po2( nyquist_f * 1.0e6 / freq_res );
+            if( nbins > 2048 )
+            {
+                std::cout << "**>nbins too large! (" << nbins << ")" << ", adjusting to 128" << std::endl;
+                nbins = 1024;
+            }
+            std::cout << "**Using " << nbins << " FFT frequency bins" << std::endl;
+            freq_res = nyquist_f * 1.0e6 / (double) nbins;
+            std::cout << "**Actual frequency resolution is " << floor( freq_res ) << "Hz" << std::endl;
 
-   // // barf out lines
-   // std::cout << "Edges found: " << lines.size() << std::endl;
+            // We need a transformer
+            glth::glth_xfrmr xfm( record_len, nbins );
 
-   // for( std::size_t i = 0; i < lines.size(); i++ ) {
-   //   cv::line( lin_matrix, cv::Point(lines[i][0], lines[i][1]),
-   // 	       cv::Point(lines[i][2], lines[i][3]), cv::Scalar(255,0,255), 3, 8 );
-   // }
-   // cv::imwrite("glth_canny.png", hgh_matrix);
-   // cv::imwrite("glth_out_lines.png", lin_matrix);
-   // cv::imwrite("glth_out.png",out_matrix);
+            std::cout << "**Allocating " << record_len << "x" << nbins << " TFR data block" << std::endl;
+            tfr_data tfr( record_len - nbins, nbins );
 
-  return res;
+            // At this point we're ready to rock.  We grab records, convert them to
+            // analog signals, and then XWVD the two channels.
+            glth_const::io_result proc_res;
+            while( (proc_res = io->populate( ch1, ch2 )) == glth_const::io_read_ok )
+            {
+                std::cout << "*Processing event #" << evt << std::endl;
+
+                // Calculate the analytic associate signal for each channel
+                std::cout << "**Calculating AA..." << std::endl;
+                xfm.aa( ch1, ch1 );
+                xfm.aa( ch2, ch2 );
+
+                // Calculate the cross wigner ville distribution for the current event
+                std::cout << "**Calculating XWVD..." << std::endl;
+                xfm.xwvd( ch1, ch2, &tfr );
+
+            }
+
+            std::cout << "**Finding extrema..." << std::endl;
+
+            double min, max;
+            for( int i = 0; i < record_len - nbins; i++ )
+            {
+                for( int j = 0; j < nbins; j++ )
+                {
+                    //wvd[i][j] = log10(wvd[i][j]);
+                    if( std::norm( tfr[i][j] ) > max )
+                        max = std::norm( tfr[i][j] );
+                    else if( std::norm( tfr[i][j] ) < min ) min = std::norm( tfr[i][j] );
+                }
+            }
+            std::cout << " <max was: " << max << ">" << std::endl;
+
+            std::cout << "**Filling matrix..." << std::endl;
+
+            cv::Mat out_matrix( record_len - 1 - nbins, nbins, CV_8UC3, cv::Scalar( 0, 0, 0 ) );
+            for( int t = 0; t < record_len - nbins; t++ )
+            {
+                for( int f = 0; f < nbins; f++ )
+                {
+                    out_matrix.at < cv::Vec3b > ((record_len - 1 - nbins) - f, t) = JetColour( std::norm( tfr[t][f] ), max );
+                }
+            }
+
+            std::cout << "**Writing..." << std::endl;
+
+            cv::imwrite( "glth_out.png", out_matrix );
+
+            std::cout << "**Peace!" << std::endl;
+        }
+    }
+
+    return 0;
 }
