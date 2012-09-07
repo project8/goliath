@@ -70,7 +70,7 @@ void glth::glth_xfrmr::xwvd(glth::signal tgt1,
 
     fftw_execute_dft(_fwd_plan,
 		     reinterpret_cast<fftw_complex*>(_in), 
-		     reinterpret_cast<fftw_complex*>((*out)[t]));
+		     reinterpret_cast<fftw_complex*>(_out)); //IM BROKEN
   }
 }
 
@@ -108,8 +108,16 @@ void glth::glth_xfrmr::xwvd_slice(glth::signal tgt1,
     _in[t] =0.5*(tgt1[tau])*(tgt2_star[t - tau]) + 
       (tgt1[tau])*(tgt2_star[t + tau]);
   }
-  
+
+  // Insert the new map element
+  out->insert(std::make_pair(t,glth::signal(_freq_res)));
+
   fftw_execute_dft(_fwd_plan,
 		   reinterpret_cast<fftw_complex*>(_in), 
-		   reinterpret_cast<fftw_complex*>((*out)[t])); 
+		   reinterpret_cast<fftw_complex*>(_out)); 
+
+  // Now copy the data into the element
+  for(std::size_t i = 0; i < _freq_res; i++) {
+    (*out)[t][i] = _out[i];
+  }
 }
