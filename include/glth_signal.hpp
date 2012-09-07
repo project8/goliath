@@ -6,7 +6,6 @@
 #include "glth_px1500.hpp"
 
 #include <cstring>
-#include <complex>
 
 namespace glth
 {
