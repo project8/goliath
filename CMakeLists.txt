@@ -53,8 +53,8 @@ set (LIBS ${LIBS} ${FFTW_LIBRARY})
 set( CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 
 # monarch pls
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/include")
-link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/Install/lib")
+include_directories("/home/dlfurse/Research/Project8/monarch/Install/include")
+link_directories("/home/dlfurse/Research/Project8/monarch/Install/lib")
 
 ##############
 # Build things

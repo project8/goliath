@@ -12,12 +12,12 @@ double randn_notrig(double mu=0.0, double sigma=1.0) {
   static bool deviateAvailable=false;        //        flag
   static float storedDeviate;                        //        deviate from previous calculation
   double polar, rsquared, var1, var2;
-       
+
   //        If no deviate has been stored, the polar Box-Muller transformation is
   //        performed, producing two independent normally-distributed random
   //        deviates.  One is stored for the next round, and one is returned.
   if (!deviateAvailable) {
-               
+
     //        choose pairs of uniformly distributed deviates, discarding those
     //        that don't fall within the unit circle
     do {
@@ -25,18 +25,18 @@ double randn_notrig(double mu=0.0, double sigma=1.0) {
       var2=2.0*( double(rand())/double(RAND_MAX) ) - 1.0;
       rsquared=var1*var1+var2*var2;
     } while ( rsquared>=1.0 || rsquared == 0.0);
-               
+
     //        calculate polar tranformation for each deviate
     polar=sqrt(-2.0*log(rsquared)/rsquared);
-               
+
     //        store first deviate and set flag
     storedDeviate=var1*polar;
     deviateAvailable=true;
-               
+
     //        return second deviate
     return var2*polar*sigma + mu;
   }
-       
+
   //        If a deviate is available from a previous call to this function, it is
   //        returned, and the flag is set to false.
   else {
@@ -82,13 +82,13 @@ cv::Vec3b JetColour(double v,double vmax)
 
   return(cv::Vec3b(blue,green,red));
 }
- 
+
 int main(const int argc, char** argv) {
   // Random number generation
   //  std::tr1::mt19937 prng(0);
   //  std::tr1::normal_distribution<double> normal;
   //  std::tr1::variate_generator<std::tr1::mt19937,std::tr1::normal_distribution<double>> randn(prng,normal);
-  
+
   // Constant
   double pi = 3.14159;
 
@@ -96,13 +96,13 @@ int main(const int argc, char** argv) {
   std::size_t siglen = 4096;
   glth::signal sig(siglen);
   int fftlen = 2048;
-  glth::glth_xfrmr xfm(siglen, siglen, fftlen);
+  glth::glth_xfrmr xfm(siglen, fftlen);
 
   std::complex<double> **wvd = new std::complex<double>*[siglen];
   for(std::size_t i = 0; i < siglen; i++) {
     wvd[i] = new std::complex<double>[fftlen];
   }
- 
+
 
   // By default we have succeeded.
   glth_const::exit_status res = glth_const::exit_success;
@@ -124,11 +124,12 @@ int main(const int argc, char** argv) {
   for(int idx = 0; idx < siglen; idx++) {
     t = idx/sample_rate;
     double phase = freq_0*t*
-      ((1 + 0.5*cos(pitch_angle)*cos(pitch_angle)/(sin(pitch_angle)*sin(pitch_angle))) + 
+      ((1 + 0.5*cos(pitch_angle)*cos(pitch_angle)/(sin(pitch_angle)*sin(pitch_angle))) +
        chirp_rate*t +
        zmax*warble/phase_v*cos(warble*t));
     std::complex<double> noise = std::complex<double>(randn_notrig(0.0,1.0),randn_notrig(0.0,1.0));
-       sig[idx] += std::complex<double>(cos(2*pi*phase),sin(2*pi*phase));
+       sig[idx][0] += cos(2*pi*phase);
+       sig[idx][1] += sin(2*pi*phase);
 
   }
 

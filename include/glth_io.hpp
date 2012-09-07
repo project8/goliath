@@ -23,7 +23,7 @@ namespace glth {
     std::size_t get_record_length() const;
     const Monarch* get_monarch_ptr() const;
 
-    glth_const::io_result populate(signal* ch1, signal* ch2);
+    glth_const::io_result populate(signal& ch1, signal& ch2);
 
   }; // class io
 

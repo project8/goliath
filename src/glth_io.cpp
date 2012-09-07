@@ -36,12 +36,12 @@ const Monarch* glth::io::get_monarch_ptr() const
     return (this->_monarch_ptr);
 }
 
-glth_const::io_result glth::io::populate( signal* ch1, signal* ch2 )
+glth_const::io_result glth::io::populate( signal& ch1, signal& ch2 )
 {
     static const MonarchRecord* work_rec;
 
     // The output arrays need to be of the correct shape.
-    if( (ch1->size()) != (this->get_record_length()) || (ch2->size()) != (this->get_record_length()) )
+    if( (ch1.size()) != (this->get_record_length()) || (ch2.size()) != (this->get_record_length()) )
     {
         return glth_const::io_read_badarray;
     }
@@ -65,10 +65,11 @@ glth_const::io_result glth::io::populate( signal* ch1, signal* ch2 )
             }
 
             // D2A the data from channel 1.
-            for( std::size_t idx = 0; idx < ch1->size(); idx++ )
+            for( std::size_t idx = 0; idx < ch1.size(); idx++ )
             {
                 double pt = 0;
-                ch1->at( idx ) = glth_px1500::min_mvolts + (glth_px1500::max_mvolts) * (work_rec->fDataPtr[idx]) / (2 << glth_px1500::n_bits);
+                ch1[idx][0] = glth_px1500::min_mvolts + (glth_px1500::max_mvolts) * (work_rec->fDataPtr[idx]) / (2 << glth_px1500::n_bits);
+                ch1[idx][1] = 0.;
             }
 
             // Grab the next channel of data.
@@ -82,10 +83,11 @@ glth_const::io_result glth::io::populate( signal* ch1, signal* ch2 )
             }
 
             // And if it is, we D2A it again.
-            for( std::size_t idx = 0; idx < ch2->size(); idx++ )
+            for( std::size_t idx = 0; idx < ch2.size(); idx++ )
             {
                 double pt = 0;
-                ch2->at( idx ) = glth_px1500::min_mvolts + (glth_px1500::max_mvolts) * (work_rec->fDataPtr[idx]) / (2 << glth_px1500::n_bits);
+                ch2[idx][0] = glth_px1500::min_mvolts + (glth_px1500::max_mvolts) * (work_rec->fDataPtr[idx]) / (2 << glth_px1500::n_bits);
+                ch1[idx][1] = 0.;
             }
 
             return glth_const::io_read_ok;

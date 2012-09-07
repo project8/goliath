@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <complex>
+#include "glth_signal.hpp"
 
 namespace glth {
 
@@ -21,7 +22,7 @@ namespace glth {
     // column access
     std::complex<double>* operator[](std::size_t colidx);
   };
-  
+
 };
 
 #endif // __glth_tfr_data_hpp

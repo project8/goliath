@@ -1,75 +1,91 @@
 #include "glth_xfrmr.hpp"
 
-glth::glth_xfrmr::glth_xfrmr(std::size_t in_size,
-		 std::size_t out_size,
-		 std::size_t resolution) 
-  : _in_size(in_size), 
-    _out_size(out_size), 
-    _freq_res(resolution),
-    _in(new std::complex<double>[in_size]),
-    _out(new std::complex<double>[out_size])
+#include <cstring>
+
+glth::glth_xfrmr::glth_xfrmr( std::size_t size, std::size_t resolution ) :
+    _size( size ),
+    _freq_res( resolution ),
+    _aa_in( glth::signal( _size ) ),
+    _aa_out( glth::signal( _size ) ),
+    _wvd_in( glth::signal( _freq_res ) ),
+    _wvd_out( glth::signal( _freq_res ) ),
+    _vwd_plan( fftw_plan_dft_1d( _freq_res, _wvd_in, _wvd_out, FFTW_FORWARD, FFTW_MEASURE ) ),
+    _aa_forward_plan( fftw_plan_dft_1d( _size, _aa_in, _aa_out, FFTW_FORWARD, FFTW_MEASURE ) ),
+    _aa_reverse_plan( fftw_plan_dft_1d( _size, _aa_out, _aa_in, FFTW_FORWARD, FFTW_MEASURE ) )
 {
-  _fwd_plan = fftw_plan_dft_1d(resolution,
-			       reinterpret_cast<fftw_complex*>(_in),
-			       reinterpret_cast<fftw_complex*>(_out),
-			       FFTW_FORWARD,
-			       FFTW_MEASURE);
 }
 
-int glth::glth_xfrmr::irem( double x, double y)
+int glth::glth_xfrmr::irem( double x, double y )
 {
-  int result;
-  
-  if (y != 0)
+    int result;
+
+    if( y != 0 )
     {
-      result =  x-y* (int)(x/y);
+        result = x - y * (int) (x / y);
     }
-  else
+    else
     {
-      result = 0;
+        result = 0;
     }
-  
-  return result;
+
+    return result;
 }
 
-void glth::glth_xfrmr::wvd(glth::signal tgt, 
-			   glth::tfr_data* out) 
+void glth::glth_xfrmr::aa( const glth::signal& in, glth::signal& out )
 {
-  return this->xwvd(tgt,tgt,out);
+    //size of arrays better both be _in_size...
+    register size_t t_index;
+
+    //copy in signal to buffer
+    _aa_in.copy_all( in );
+
+    //compute forward transform
+    fftw_execute( _aa_forward_plan );
+
+    //filter
+    for( t_index = 1; t_index < _size / 2; t_index++ )
+    {
+        _aa_out[t_index][0] *= 2;
+        _aa_out[t_index][1] *= 2;
+    }
+    for( t_index = _size / 2 + 1; t_index < _size; t_index++ )
+    {
+        _aa_out[t_index][0] = 0.;
+        _aa_in[t_index][1] = 0.;
+    }
+
+    //compute reverse transform
+    fftw_execute( _aa_reverse_plan );
+
+    //normalize
+    for( t_index = 1; t_index < _size / 2; t_index++ )
+    {
+        _aa_out[t_index][0] /= _size;
+        _aa_out[t_index][1] /= _size;
+    }
+
+    //copy buffer to out signal
+    out.copy_all( _aa_out );
+
+    return;
 }
 
-void glth::glth_xfrmr::xwvd(glth::signal tgt1, 
-			    glth::signal tgt2,
-			    glth::tfr_data* out) 
+void glth::glth_xfrmr::wvd( const glth::signal& tgt, glth::tfr_data* out )
 {
-  int tau, taumax;
-  int siglen = tgt1.size();
+    return this->xwvd( tgt, tgt, out );
+}
 
-  glth::signal tgt2_star(tgt2.size());
-  for(int i = 0; i < siglen; i++) {
-    tgt2_star[i] = std::conj(tgt2[i]);
-  }
-
-  //#pragma omp for private(tau)
-  for(int t = 0; t < siglen; t++) {
-    
-    // How large in tau should we go?
-    taumax = (t < (siglen - t - 1)) ? t : (siglen - t - 1);
-    taumax = (taumax < (_freq_res/2 - 1)) ? taumax : (_freq_res/2 - 1);
-
-    for(tau = -taumax; tau <= taumax; tau++) {
-      int row = irem(_freq_res + tau, _freq_res);
-      _in[row] = (tgt1[tau])*(tgt2_star[t - tau]);
+void glth::glth_xfrmr::xwvd( const glth::signal& tgt1, const glth::signal& tgt2, glth::tfr_data* out )
+{
+    size_t tau;
+    for( size_t t = 0; t < _size - _freq_res; t++ )
+    {
+        _wvd_in.zero_all();
+        for( tau = 0; tau < _freq_res; tau++ )
+        {
+            _wvd_in[tau][0] = tgt1[t + tau][0] * tgt2[t + _freq_res - 1 - tau][0] + tgt1[tau][1] * tgt2[t + _freq_res - 1 - tau][1];
+        }
+        fftw_execute( _vwd_plan );
+        memcpy( (*out)[t], _wvd_out.data(), _wvd_out.size() * sizeof( fftw_complex ) );
     }
-
-    tau = floor(_freq_res/2);
-    if((t <= (siglen - tau - 1)) && (t >= tau)) {
-      _in[t] =0.5*(tgt1[tau])*(tgt2_star[t - tau]) + 
-	(tgt1[tau])*(tgt2_star[t + tau]);
-    }
-
-    fftw_execute_dft(_fwd_plan,
-		     reinterpret_cast<fftw_complex*>(_in), 
-		     reinterpret_cast<fftw_complex*>((*out)[t]));
-  }
 }
