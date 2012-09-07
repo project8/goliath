@@ -39,7 +39,7 @@ namespace glth {
     // at a particular time.
     void xwvd_slice(glth::signal tgt1,
 		    glth::signal tgt2,
-		    glth::signal* out,
+		    glth::tfr_data* out,
 		    int time);
   };
 
