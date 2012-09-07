@@ -38,6 +38,12 @@ namespace glth
 
             // Calculate the cross wigner-ville distribution for two signals.
             void xwvd( const glth::signal& tgt1, const glth::signal& tgt2, glth::tfr_data& out );
+
+            // Calculate the cross wigner-ville distribution for two signals.
+            void xwvd_slice( const glth::signal& tgt1, 
+			     const glth::signal& tgt2, 
+			     glth::signal& out,
+			     const int instant);
     };
 
 }
