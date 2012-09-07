@@ -13,7 +13,7 @@ glth::glth_xfrmr::glth_xfrmr(std::size_t in_size,
 			       reinterpret_cast<fftw_complex*>(_in),
 			       reinterpret_cast<fftw_complex*>(_out),
 			       FFTW_FORWARD,
-			       FFTW_MEASURE);
+			       FFTW_PATIENT);
 }
 
 int glth::glth_xfrmr::irem( double x, double y)
@@ -76,11 +76,14 @@ void glth::glth_xfrmr::xwvd(glth::signal tgt1,
 
 void glth::glth_xfrmr::xwvd_slice(glth::signal tgt1, 
 				  glth::signal tgt2,
-				  glth::signal* out,
+				  glth::tfr_data* out,
 				  int t) 
 {
   int tau, taumax;
   int siglen = tgt1.size();
+
+  // Blank the input array.
+  std::memset(_in, 0, _in_size*sizeof(std::complex<double>));
 
   // Precompute the complex conjugate of the second signal.
   glth::signal tgt2_star(tgt2.size());
@@ -108,5 +111,5 @@ void glth::glth_xfrmr::xwvd_slice(glth::signal tgt1,
   
   fftw_execute_dft(_fwd_plan,
 		   reinterpret_cast<fftw_complex*>(_in), 
-		   reinterpret_cast<fftw_complex*>(out)); 
+		   reinterpret_cast<fftw_complex*>((*out)[t])); 
 }
