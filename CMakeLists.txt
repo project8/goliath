@@ -101,8 +101,8 @@ set (GOLIATH_SOURCE_FILES
 #install (TARGETS monarch  DESTINATION ${LIB_INSTALL_DIR})
 
 # Build the test executable
-add_executable (glth ${CMAKE_CURRENT_SOURCE_DIR}/src/glth.cpp ${GOLIATH_SOURCE_FILES})
-target_link_libraries(glth MonarchCore ${LIBS})
+#add_executable (glth ${CMAKE_CURRENT_SOURCE_DIR}/src/glth.cpp ${GOLIATH_SOURCE_FILES})
+#target_link_libraries(glth MonarchCore ${LIBS})
 add_executable (glth_test ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_test.cpp ${GOLIATH_SOURCE_FILES})
 target_link_libraries(glth_test MonarchCore ${LIBS})
 

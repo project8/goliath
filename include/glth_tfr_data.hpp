@@ -13,11 +13,11 @@ namespace glth {
     std::complex<double>** _data;
   public:
     tfr_data(std::size_t nt, std::size_t nf);
+    ~tfr_data();
 
     // size access
     std::size_t get_ntime();
     std::size_t get_nfreq();
-
 
     // column access
     std::complex<double>* operator[](std::size_t colidx);

@@ -2,33 +2,18 @@
 
 #include <cstring>
 
-glth::glth_xfrmr::glth_xfrmr( std::size_t size, std::size_t resolution ) :
+glth::glth_xfrmr::glth_xfrmr( std::size_t size, std::size_t freq_bins, std::size_t time_bins ) :
     _size( size ),
-    _freq_res( resolution ),
+    _freq_bins( freq_bins ),
+    _time_bins( time_bins ),
     _aa_in( glth::signal( _size ) ),
     _aa_out( glth::signal( _size ) ),
-    _wvd_in( glth::signal( _freq_res ) ),
-    _wvd_out( glth::signal( _freq_res ) ),
-    _vwd_plan( fftw_plan_dft_1d( _freq_res, _wvd_in, _wvd_out, FFTW_FORWARD, FFTW_MEASURE ) ),
     _aa_forward_plan( fftw_plan_dft_1d( _size, _aa_in, _aa_out, FFTW_FORWARD, FFTW_MEASURE ) ),
-    _aa_reverse_plan( fftw_plan_dft_1d( _size, _aa_out, _aa_in, FFTW_FORWARD, FFTW_MEASURE ) )
+    _aa_reverse_plan( fftw_plan_dft_1d( _size, _aa_out, _aa_in, FFTW_FORWARD, FFTW_MEASURE ) ),
+    _wvd_in( glth::signal( _freq_bins ) ),
+    _wvd_out( glth::signal( _freq_bins ) ),
+    _vwd_plan( fftw_plan_dft_1d( _freq_bins, _wvd_in, _wvd_out, FFTW_FORWARD, FFTW_MEASURE ) )
 {
-}
-
-int glth::glth_xfrmr::irem( double x, double y )
-{
-    int result;
-
-    if( y != 0 )
-    {
-        result = x - y * (int) (x / y);
-    }
-    else
-    {
-        result = 0;
-    }
-
-    return result;
 }
 
 void glth::glth_xfrmr::aa( const glth::signal& in, glth::signal& out )
@@ -37,7 +22,7 @@ void glth::glth_xfrmr::aa( const glth::signal& in, glth::signal& out )
     register size_t t_index;
 
     //copy in signal to buffer
-    _aa_in.copy_all( in );
+    _aa_in.copy_from( in );
 
     //compute forward transform
     fftw_execute( _aa_forward_plan );
@@ -65,27 +50,39 @@ void glth::glth_xfrmr::aa( const glth::signal& in, glth::signal& out )
     }
 
     //copy buffer to out signal
-    out.copy_all( _aa_out );
+    out.copy_from( _aa_out );
 
     return;
 }
 
-void glth::glth_xfrmr::wvd( const glth::signal& tgt, glth::tfr_data* out )
+void glth::glth_xfrmr::wvd( const glth::signal& tgt, glth::tfr_data& out )
 {
     return this->xwvd( tgt, tgt, out );
 }
 
-void glth::glth_xfrmr::xwvd( const glth::signal& tgt1, const glth::signal& tgt2, glth::tfr_data* out )
+void glth::glth_xfrmr::xwvd( const glth::signal& tgt1, const glth::signal& tgt2, glth::tfr_data& out )
 {
-    size_t tau;
-    for( size_t t = 0; t < _size - _freq_res; t++ )
+    size_t time_stride = _size / _time_bins;
+    size_t time_index = 0;
+
+    register double t1_real;
+    register double t1_imag;
+    register double t2_real;
+    register double t2_imag;
+
+    for( size_t t = 0; t < _time_bins; t++ )
     {
-        _wvd_in.zero_all();
-        for( tau = 0; tau < _freq_res; tau++ )
+        for( size_t tau = 0; tau < _freq_bins; tau++ )
         {
-            _wvd_in[tau][0] = tgt1[t + tau][0] * tgt2[t + _freq_res - 1 - tau][0] + tgt1[tau][1] * tgt2[t + _freq_res - 1 - tau][1];
+            t1_real = tgt1[time_index + tau][0];
+            t1_imag = tgt1[time_index + tau][1];
+            t2_real = tgt1[time_index + _freq_bins - 1 - tau][0];
+            t2_imag = tgt1[time_index + _freq_bins - 1 - tau][0];
+            _wvd_in[tau][0] = t1_real * t2_real + t1_imag * t2_imag;
+            _wvd_in[tau][1] = t1_imag * t2_real - t1_real * t2_imag;
         }
         fftw_execute( _vwd_plan );
-        memcpy( (*out)[t], _wvd_out.data(), _wvd_out.size() * sizeof( fftw_complex ) );
+        memcpy( out[t], _wvd_out.data(), _freq_bins * sizeof(std::complex< double >) );
+        time_index += time_stride;
     }
 }

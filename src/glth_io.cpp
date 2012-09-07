@@ -31,9 +31,9 @@ std::size_t glth::io::get_record_length() const
 {
     return (this->_monarch_ptr->GetHeader()->GetRecordSize());
 }
-const Monarch* glth::io::get_monarch_ptr() const
+double glth::io::get_record_frequency() const
 {
-    return (this->_monarch_ptr);
+    return (this->_monarch_ptr->GetHeader()->GetAcqRate());
 }
 
 glth_const::io_result glth::io::populate( signal& ch1, signal& ch2 )

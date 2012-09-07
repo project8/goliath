@@ -4,9 +4,9 @@
 #include "glth_const.hpp"
 #include "glth_types.hpp"
 #include "glth_px1500.hpp"
-#include "fftw3.h"
 
 #include <cstring>
+#include <complex>
 
 namespace glth
 {
@@ -14,7 +14,9 @@ namespace glth
     /*
      * goliath considers a 'signal' to be a complex valued vector.
      */
-    //typedef std::vector<std::complex<double> > signal;
+
+    typedef double cplx[2];
+
     class signal
     {
         private:
@@ -24,33 +26,44 @@ namespace glth
             signal( const size_t& a_size );
             ~signal();
 
-            void copy_all( const signal& a_signal );
+            void copy_to( signal& a_signal );
+            void copy_from( const signal& a_signal );
             void zero_all();
 
             const size_t& size() const;
 
-            fftw_complex* data();
-            const fftw_complex* data() const;
+            // index operators
+            cplx& operator[]( const size_t& an_index );
+            const cplx& operator[]( const size_t& an_index ) const;
 
-            operator fftw_complex*();
-            operator const fftw_complex*() const;
-
-            fftw_complex& operator[]( const size_t& an_index );
-            const fftw_complex& operator[]( const size_t& an_index ) const;
+            // access as double[2]/fftw_complex
+            cplx* data()
+                { return _data; }
+            const cplx* data() const
+                { return _data; }
+            operator cplx*()
+                { return _data; }
+            operator const cplx*() const
+                { return _data; }
 
         private:
             size_t _size;
-            fftw_complex* _data;
+            cplx* _data;
     };
 
-    inline void signal::copy_all( const signal& a_signal )
+    inline void signal::copy_to( signal& a_signal )
     {
-        memcpy( _data, a_signal.data(), _size * sizeof( fftw_complex ) );
+        memcpy( a_signal._data, _data, _size * sizeof( cplx ) );
+        return;
+    }
+    inline void signal::copy_from( const signal& a_signal )
+    {
+        memcpy( _data, a_signal._data, _size * sizeof( cplx ) );
         return;
     }
     inline void signal::zero_all()
     {
-        memset( _data, 0, _size * sizeof( fftw_complex ) );
+        memset( _data, 0, _size * sizeof( cplx ) );
         return;
     }
 
@@ -59,32 +72,15 @@ namespace glth
         return _size;
     }
 
-    inline fftw_complex& signal::operator[]( const size_t& an_index )
+    inline cplx& signal::operator[]( const size_t& an_index )
     {
         return _data[an_index];
     }
-    inline const fftw_complex& signal::operator[]( const size_t& an_index ) const
+    inline const cplx& signal::operator[]( const size_t& an_index ) const
     {
         return _data[an_index];
     }
 
-    inline signal::operator fftw_complex*()
-    {
-        return _data;
-    }
-    inline signal::operator const fftw_complex*() const
-    {
-        return _data;
-    }
-
-    inline fftw_complex* signal::data()
-    {
-        return _data;
-    }
-    inline const fftw_complex* signal::data() const
-    {
-        return _data;
-    }
 
 } // namespace glth_signal
 

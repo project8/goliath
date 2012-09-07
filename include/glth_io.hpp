@@ -20,8 +20,9 @@ namespace glth {
     Monarch const* _monarch_ptr;
   public:
     static io* open_file(std::string filename);
+
     std::size_t get_record_length() const;
-    const Monarch* get_monarch_ptr() const;
+    double get_record_frequency() const;
 
     glth_const::io_result populate(signal& ch1, signal& ch2);
 
