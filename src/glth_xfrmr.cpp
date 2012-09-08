@@ -103,3 +103,11 @@ void glth::glth_xfrmr::xwvd( const glth::signal& in_1, const glth::signal& in_2,
     _wvd_out.copy_to( out );
     return;
 }
+
+void xwvd_slice( const glth::signal& tgt1, 
+		 const glth::signal& tgt2, 
+		 glth::signal& out,
+		 const int instant)
+{
+  /* no-op */
+}

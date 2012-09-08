@@ -53,8 +53,8 @@ set (LIBS ${LIBS} ${FFTW_LIBRARY})
 set( CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
 
 # monarch pls
-include_directories("/home/dlfurse/Research/Project8/monarch/Install/include")
-link_directories("/home/dlfurse/Research/Project8/monarch/Install/lib")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/Install/include")
+link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/Install/lib")
 
 ##############
 # Build things
@@ -77,6 +77,7 @@ set (GOLIATH_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_candidate.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_color.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_discrim.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_tfr_map.hpp
 )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -89,6 +90,7 @@ set (GOLIATH_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_candidate.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_discrim.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_tfr_map.cpp
 )
 
 # Generate the Protocol Buffers cpp file

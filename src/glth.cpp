@@ -79,7 +79,7 @@ int main( int argc, char** argv )
             glth::glth_xfrmr xfm( record_len, nbins );
 
             std::cout << "**Allocating " << record_len << "x" << nbins << " TFR data block" << std::endl;
-            tfr_data tfr( record_len, nbins );
+            tfr tfr( record_len, nbins );
 
             // At this point we're ready to rock.  We grab records, convert them to
             // analog signals, and then XWVD the two channels.
@@ -94,7 +94,7 @@ int main( int argc, char** argv )
                 xfm.aa( ch2, ch2 );
 
                 // Calculate the cross wigner ville distribution for the current event
-                std::cout << "**Calculating XWVD..." << std::endl;
+                std::cout << "**Calculating XWVD for ..." << std::endl;
                 xfm.xwvd( ch1, ch2, &tfr );
 
                 // Calculate the adaptive threshold that's appropriate for this
