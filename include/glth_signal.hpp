@@ -5,6 +5,7 @@
 #include "glth_types.hpp"
 #include "glth_px1500.hpp"
 
+#include <cmath>
 #include <cstring>
 
 namespace glth
@@ -34,6 +35,10 @@ namespace glth
             // index operators
             cplx& operator[]( const size_t& an_index );
             const cplx& operator[]( const size_t& an_index ) const;
+
+      // our class needs to be assignable
+      signal& operator=(const signal& tgt);
+signal(const signal& tgt);
 
             // access as double[2]/fftw_complex
             cplx* data()
