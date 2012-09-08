@@ -8,6 +8,9 @@
 #include "glth_candidate.hpp"
 #include "glth_color.hpp"
 #include "glth_discrim.hpp"
+#include "glth_util.hpp"
+#include "glth_tfr_map.hpp"
+#include "glth_segment.hpp"
 #include <cv.h>
 #include <highgui.h>
 
@@ -16,6 +19,8 @@ using glth::io;
 using glth::tfr_data;
 using glth::candidate;
 using glth::discriminator;
+using glth::tfr_map;
+using glth::segment;
 using namespace glth_const;
 
 // For statistics and all
@@ -61,25 +66,32 @@ int main( int argc, char** argv )
             // Nyquist rate from the header and our desired frequency resolution,
             // which in this case is hard coded at 30kHz.  We find the next highest
             // power of two and that's our binning.
-            double nyquist_f = (io->get_monarch_ptr()->GetHeader()->GetAcqRate()) / 2.0;
+            double nyquist_f = (io->get_record_frequency())/2.0;
             std::cout << "*Nyquist frequency is " << nyquist_f << "MHz" << std::endl;
 
-            double freq_res = 30.0e3;
-            std::size_t nbins = next_po2( nyquist_f * 1.0e6 / freq_res );
-            if( nbins > 2048 )
+	    std::size_t nbins = env->get_freq_res();
+            if( nbins > 1024 )
             {
-                std::cout << "**>nbins too large! (" << nbins << ")" << ", adjusting to 128" << std::endl;
-                nbins = 128;
+	      std::cout << "**>nbins too large! (" << nbins << ")" << ", adjusting to 1024" << std::endl;
+	      nbins = 1024;
             }
             std::cout << "**Using " << nbins << " FFT frequency bins" << std::endl;
-            freq_res = nyquist_f * 1.0e6 / (double) nbins;
+            float freq_res = nyquist_f * 1.0e6 / (double) nbins;
             std::cout << "**Actual frequency resolution is " << floor( freq_res ) << "Hz" << std::endl;
 
             // We need a transformer
-            glth::glth_xfrmr xfm( record_len, nbins );
+            glth::glth_xfrmr xfm( record_len, nbins, env->get_time_res() );
 
             std::cout << "**Allocating " << record_len << "x" << nbins << " TFR data block" << std::endl;
-            tfr tfr( record_len, nbins );
+
+	    // The TFR map is the workhorse data structure for searching through the XWVD.
+	    // It maps an integer (a position in time) to a signal which is the FFT of the
+	    // XWVD calculated at that time.
+            tfr_map tfr_m;
+
+	    // We also use a TFR map for the background analysis which takes place at the
+	    // beginning of each record.
+	    tfr_map tfr_bkg_m;
 
             // At this point we're ready to rock.  We grab records, convert them to
             // analog signals, and then XWVD the two channels.
@@ -94,8 +106,12 @@ int main( int argc, char** argv )
                 xfm.aa( ch2, ch2 );
 
                 // Calculate the cross wigner ville distribution for the current event
-                std::cout << "**Calculating XWVD for ..." << std::endl;
-                xfm.xwvd( ch1, ch2, &tfr );
+                std::cout << "**Calculating XWVD for background analysis..." << std::endl;
+		glth::signal bkg_slice(nbins);
+		for(std::size_t time = 0; time < 1024; time++) {
+		  xfm.xwvd_slice(ch1,ch2,bkg_slice,time);
+		  tfr_bkg_m.insert(std::make_pair(time,bkg_slice));
+		}
 
                 // Calculate the adaptive threshold that's appropriate for this
                 // event.  In the future this should be more robust, but for now,
@@ -119,14 +135,17 @@ int main( int argc, char** argv )
                 // In addition, we care about the maximum power in the event.
                 double max( 0.0 );
 
-                std::cout << "**Calculating event threshold between bins " << bin10MHz << " and " << bin100MHz;
+                std::cout << "**Calculating event threshold between bins " 
+			  << bin10MHz 
+			  << " and " 
+			  << bin100MHz;
                 std::map< int, meanvar > thresh;
                 // Go between the bins we care about and calculate the thresholds for each
                 for( std::size_t bin = bin10MHz; bin < bin100MHz; bin++ )
                 {
                     for( std::size_t thresh_t = 0; thresh_t < 1024; thresh_t++ )
                     {
-                        thresh[bin].first += std::norm( tfr[thresh_t][bin] );
+		      thresh[bin].first += glth::cplx_norm( (tfr_bkg_m.find(thresh_t)->second)[bin] );
                     }
                     // Calculate the mean
                     thresh[bin].first /= 1024;
@@ -134,14 +153,14 @@ int main( int argc, char** argv )
                     // One for pass for variance
                     for( std::size_t thresh_t = 0; thresh_t < 1024; thresh_t++ )
                     {
-                        double contrib = pow( std::norm( tfr[thresh_t][bin] ), 2 );
+		      double contrib = pow( glth::cplx_norm( (tfr_bkg_m.find(thresh_t)->second)[bin] ), 2 );
                         thresh[bin].second += contrib;
                     }
                     // Calculate the variance
                     thresh[bin].second /= 1024;
                     thresh[bin].second -= pow( thresh[bin].first, 2.0 );
                     thresh[bin].second = sqrt( thresh[bin].second );
-                }
+                } // calculate thresholds bin by bin
 
                 // Output mean of the means, mean of the variances as diagnostic.
                 double meanmean( 0 ), meanstd( 0 );
@@ -149,168 +168,121 @@ int main( int argc, char** argv )
                 {
                     meanmean += thresh[bin].first;
                     meanstd += thresh[bin].second;
-                }
+                } // calculate mean of mean and mean of standard deviation
 
-                std::cout << "(" << "avg mean: " << meanmean << ", avg 1 sigma thresh:" << meanstd << ")" << std::endl;
+                std::cout << "(" << "avg mean: " 
+			  << meanmean 
+			  << ", avg 1 sigma thresh:" 
+			  << meanstd << ")" << std::endl;
 
                 // Now traverse the XWVD from bin 1024 on.  At each time slice, inspect
                 // each bin in the bandpass of the receiver and check if it is at the
                 // 3 sigma level or higher (this is an arbitrary choice for now, this
                 // should really be an option).  If it is, set the bit in the frequency
-                // discriminator corresponding to that bin to high.  In addition, check
-                // the nearest neighbors of the frequency in the discriminator values
-                // for the previous time slice.  If they are high, then multiply an
-                // accumulator(prob_acc) by the probability of random occurrence (rand_prob):
-                // P(random) = P(bin is high) && P(at least one of previous bins is high)
-                // P(random) = disc_thresh*(1 - P(none of previous bins are high))
-                // P(random) = disc_thresh*(1 - (1-disc_thresh)^N)
-                // In addition, we set a bit that indicates we think that an event may be
-                // forming(ev_trig), and record the time that this happened(t_trig).
-                // Should the value of the accumulator fall below a threshold,
-                // we set a bit that indicates that an event is detected(ev_det),
-                // record the point where it does, and once the search stops finding
-                // correlated bins, we record it as a candidate.
+                // discriminator corresponding to that bin to high.  At that point, jump
+		// forward by a chunk of time (wvd_coarse_stride), recalculate the XWVD
+		// at that time, and then examine the bins defined by the chirp cone.
+		// If any of those bins are high, jump backward by half the stride from
+		// the new position (so that you now at time + stride/2) and look for
+		// points which "connect" the two planes in the sense that they fall on
+		// a line which connects high bins.  If those exist, jump forward by 
+		// stride/4 (this is a binary search) and repeat.  If connections are
+		// found between those two planes, declare that we have found an event.
+		// At a 3 sigma threshold, this is randomly triggered at a rate of 1 in
+		// 10^10.  Return to the furthest time position and repeat.
 
-                // The random probability as above.
-                int n_neighbors = 3;
-                double rand_thresh = 0.003; // Probability of being three sigma
-                double rand_prob = rand_thresh * (1 - pow( (1 - rand_thresh), 2 * n_neighbors + 1 ));
+		// This is the coarse stride.  
+		std::size_t wvd_coarse_stride = 2500;
 
-                // The discriminator banks.
-                discriminator f_disc( nbins ), f_disc_last( nbins ), t_disc( record_len );
+                // We need to define a chirp cone.  For a linear FM chirp with a 
+		// linear modulation b, such that f(t) = a + bt, if bin (a) is high
+		// at time 0, then at time t, bin a+bt is high (obviously).  If we accept
+		// b as a *parameter* that we are searching over, then we can accept a 
+		// bmin and bmax, which defines the linear FM range that we can detect.
+		// For example, if we say that the frequency changes no less than 
+		// a part per thousand per time slice and no more than 100 parts per thousand,
+		// then 2500 bins away, we look between a+2 and a+25000.  This is obviously 
+		// dramatic but illustrates the point.  fm_min and fm_max are below in 
+		// frequency bins / time bin, which can be derived at run time.
+		std::size_t fm_min(1), fm_max(3);
 
-                // The trigger bools.
-                bool ev_trig( false ), ev_det( false );
-
-                // Time that the event was triggered at.
-                std::size_t trig_init_t = 0;
-                std::size_t fired_at = 0;
-
-                // The probability accumulator and threshold.
-                double prob_acc = 1.0;
-                double prob_thresh = 0.01;
+                // The discriminator banks.  We need 4 of them max.
+		std::vector<discriminator> planes;
+		for(int i = 0; i < 4; i++) {
+		  planes.push_back(discriminator(nbins));
+		}
 
                 // This is our list of candidates.
                 std::vector< candidate > cs;
 
+		// Start after the background calculated stuff.
                 std::size_t t0 = 1024;
-                // Iterate over time slices
-                for( std::size_t t = t0; t < record_len; t++ )
-                {
-                    // Temporary variable for power
-                    double norm_pwr( 0.0 );
+		std::size_t t = t0;
 
-                    // A temporary that indicates that a frequency discriminator fired
-                    // at this time slice.
-                    bool time_disc = false;
+		// The current stride.  Right now it's the coarse stride.
+		std::size_t stride = wvd_coarse_stride;
 
-                    // Inside, iterate over frequency
-                    for( std::size_t f = bin10MHz; f < bin100MHz; f++ )
-                    {
-                        // Precalculate norm of bin
-                        norm_pwr = std::norm( tfr[t][f] );
+		// Temporary calculation signal
+		glth::signal loc_xwvd(nbins);
 
-                        // If any bin in the time slice is high, record the frequency as high
-                        if( norm_pwr >= (thresh[f].first + 3.0 * thresh[f].second) )
-                        {
-                            time_disc = true;
-                            f_disc[f] = true;
-                        }
+		// The recursion depth is specified by this index.
+		int search_idx = 0;
 
-                        // Check the value against the maximum.
-                        if( norm_pwr > max ) max = norm_pwr;
+		// Bools for finding an event.
+		bool evt_found = false;
 
-                        // Check if neighboring bins in the previous time slice were high, and
-                        // if they were, record the time that this happened (unless we already
-                        // suspect an event is forming)
-                        if( f_disc_last.any( f - n_neighbors, f + n_neighbors ) )
-                        {
-                            // If ev_trig hasn't been fired, fire it.
-                            if( ev_trig == false )
-                            {
-                                trig_init_t = t;
-                                ev_trig = true;
-                            }
-                            prob_acc *= (1.0 - rand_prob);
-                        } // nearest neighbor search
+		// Segments that we have found so far.
+		std::vector<segment> sgs;
 
-                        // Otherwise the nearest neighbor search failed.
-                        else
-                        {
-                            ev_trig = false;
-                            prob_acc = 1.0;
-                        }
-                    } // for loop over frequency
+		// GO GO GO 
+		while( t < record_len ) {
+		  // If we triggered at this time slice, mark it.
+		  bool disc_fired = false;
 
-                    // If the probability accumulator has fallen below threshold, then we
-                    // declare that we detected something!
-                    if( (prob_acc < prob_thresh) && (ev_det == false) )
-                    {
-                        std::cout << "***Event #" << evt << " passes cut at t=" << t << "(p < " << prob_thresh << ")" << std::endl;
-                        ev_det = true;
-                    }
+		  // Calculate the XWVD of the two channels at this time slice.
+		  xfm.xwvd_slice(ch1,ch2,loc_xwvd,t);
 
-                    // If we are currently in detection mode (i.e. ev_det is high), but
-                    // we didn't see anything interesting in this time slice (i.e.
-                    // ev_trig is low), then we declare the event is over.
-                    // store the information about it, reset all of the counters
-                    // and triggers, and move on.
-                    if( (ev_det == true) && (ev_trig == false) )
-                    {
-                        std::cout << "***Event #" << evt << " falls below threshold at t=" << t << " duration=" << fired_at - t << std::endl;
+		  // Sic the discriminator on it.  Go bin by bin in the frequency domain
+		  // and check if the XWVD meets the threshold requirement.
+		  for(std::size_t f = 0; f < nbins; f++) {
 
-                        cs.push_back( glth::candidate( fired_at, t, evt ) );
+		    // Are we 3 sigma above?
+		    if( glth::cplx_norm(loc_xwvd[f]) >= 
+			(3.0*thresh[f].second + thresh[f].first) ) {
+		      planes[search_idx][f] = true;
+		      disc_fired = true;
+		    }
+		    // What about 3 sigma below?
+		    else if ( glth::cplx_norm(loc_xwvd[f]) <= 
+			      (thresh[f].first - 3.0*thresh[f].second) ) {
+		      planes[search_idx][f] = true;
+		      disc_fired = true;
+		    }
+		  } // For loop over frequency bins
 
-                        // Drop the event detection bool.
-                        ev_det = false;
+		  // If the search index is greater than 0, then we are binary searching.
+		  // For the current plane, we need to check if we are connected to the 
+		  // previous plane by a segment.  If we are at depth 2 or 3, then there
+		  // is an existing segment (or segments) that need to be checked.  If we
+		  // are at depth 1, we are checking our bins to see if any of them lie
+		  // in the chirp cone from fired discriminators in plane 0.
+		  // Iterate over frequency and check.  
 
-                        // Reset the probability accumulator.
-                        prob_acc = 1.0;
-                    }
+		  // OK, if the time discriminator fired, then we need to set the 
+		  // stride up to work.
+		  if(disc_fired == true) {
+		    stride = wvd_coarse_stride/(search_idx + 1);
+		    stride = (search_idx % 2 == 0 ? stride : -stride);
+		  }
+		  else if (search_idx > 3) {
+		    evt_found = true;
+		    stride = wvd_coarse_stride;
+		  }
+		  
+		  // Go to the next time slice.
+		  t += stride;
 
-                    // Set the last frequency discriminator to the current one.
-                    f_disc_last = f_disc;
-                } // for loop over time
-
-                // It may be the case that we wind up at the end of the event
-                // and the discriminator never went below threshold!  In that case,
-                // add whatever is in the discriminator as an event.
-                if( (ev_det == true) )
-                {
-                    std::cout << "***Event #" << evt << " ended with high trigger. " << "Adding to candidate list: " << "duration: " << (record_len - 1) - fired_at << std::endl;
-                    cs.push_back( glth::candidate( fired_at, record_len - 1, evt ) );
-                }
-
-                /*
-                 * Now we have a list of candidates for this event.  We want to iterate
-                 * over them, find a sensible packing, and then write that data to file
-                 * so that humans can look at it.  Our iterator should be aligned at the
-                 * first candidate that belongs to the current event.
-                 */
-                std::size_t c_idx( 0 );
-                std::vector< candidate >::iterator cs_it;
-                for( cs_it = cs.begin(); cs_it != cs.end(); cs_it++ )
-                {
-                    glth::span idcs = (*cs_it).get_time_span();
-                    std::size_t range = idcs.second - idcs.first;
-                    cv::Mat out( nbins, range, CV_8UC3, cv::Scalar( 0, 0, 0 ) );
-
-                    // Iterate and write.
-                    for( std::size_t time = 0; time < range; time++ )
-                    {
-                        for( std::size_t freq = 0; freq < nbins; freq++ )
-                        {
-                            out.at < cv::Vec3b > ((nbins - 1) - freq, time) = glth::jet( std::norm( tfr[time + idcs.first][freq] ), max );
-                        }
-                    }
-
-                    // Now write it.
-                    std::stringstream fname;
-                    fname << "glth_out_" << env->get_in_filename() << "_" << c_idx << ".png";
-                    cv::imwrite( fname.str(), out );
-
-                    c_idx++;
-                }
+		} // While t is less than the record length
 
                 // Increment the event counter.
                 evt++;
