@@ -50,7 +50,7 @@ include_directories(${FFTW_INCLUDE_DIR})
 set (LIBS ${LIBS} ${FFTW_LIBRARY})
 
 # let's be fancy!
-set( CMAKE_CXX_FLAGS "-O2 -g ${CMAKE_CXX_FLAGS}")
+set( CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 
 # monarch pls
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/monarch/Install/include")
@@ -78,6 +78,8 @@ set (GOLIATH_HEADER_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_color.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_discrim.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_tfr_map.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_util.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/glth_segment.hpp
 )
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -91,6 +93,8 @@ set (GOLIATH_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_color.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_discrim.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_tfr_map.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_util.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_segment.cpp
 )
 
 # Generate the Protocol Buffers cpp file
@@ -103,8 +107,8 @@ set (GOLIATH_SOURCE_FILES
 #install (TARGETS monarch  DESTINATION ${LIB_INSTALL_DIR})
 
 # Build the test executable
-#add_executable (glth ${CMAKE_CURRENT_SOURCE_DIR}/src/glth.cpp ${GOLIATH_SOURCE_FILES})
-#target_link_libraries(glth MonarchCore ${LIBS})
+add_executable (glth ${CMAKE_CURRENT_SOURCE_DIR}/src/glth.cpp ${GOLIATH_SOURCE_FILES})
+target_link_libraries(glth MonarchCore ${LIBS})
 add_executable (glth_test ${CMAKE_CURRENT_SOURCE_DIR}/src/glth_test.cpp ${GOLIATH_SOURCE_FILES})
 target_link_libraries(glth_test MonarchCore ${LIBS})
 
