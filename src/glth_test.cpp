@@ -88,7 +88,7 @@ int main( const int argc, char** argv )
                     xfm.xwvd( ch1_aa, ch2_aa, xwvd, offset );
                     for( size_t i = 0; i < freq_bins / 2; i++ )
                     {
-                        output << offset << " " << i << " " << xwvd[i][0]*xwvd[i][0]+xwvd[i][1]*xwvd[i][1] << "\n";
+                        output << offset << " " << i << " " << log10( xwvd[i][0]*xwvd[i][0]+xwvd[i][1]*xwvd[i][1] ) << "\n";
                     }
                     offset += time_bins;
                 }

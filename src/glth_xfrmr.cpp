@@ -1,6 +1,8 @@
 #include "glth_xfrmr.hpp"
 
 #include <cstring>
+#include <cstdio>
+
 #include <fstream>
 #include <iostream>
 using std::cout;
@@ -12,12 +14,39 @@ glth::glth_xfrmr::glth_xfrmr( std::size_t size, std::size_t freq_bins, std::size
     _time_bins( time_bins ),
     _aa_sig_buf( glth::signal( _size ) ),
     _aa_xfm_buf( glth::signal( _size ) ),
-    _aa_forward_plan( fftw_plan_dft_1d( _size, _aa_sig_buf, _aa_xfm_buf, FFTW_FORWARD, FFTW_MEASURE ) ),
-    _aa_reverse_plan( fftw_plan_dft_1d( _size, _aa_xfm_buf, _aa_sig_buf, FFTW_BACKWARD, FFTW_MEASURE ) ),
+    _aa_forward_plan( NULL ),
+    _aa_reverse_plan( NULL ),
     _wvd_in( glth::signal( _freq_bins ) ),
     _wvd_out( glth::signal( _freq_bins ) ),
-    _wvd_plan( fftw_plan_dft_1d( _freq_bins, _wvd_in, _wvd_out, FFTW_FORWARD, FFTW_MEASURE ) )
+    _wvd_plan( NULL )
 {
+    bool t_wisdom_flag = false;
+    FILE* t_wisdom_input_file = NULL;
+    FILE* t_wisdom_output_file = NULL;
+
+    t_wisdom_input_file = fopen("./glth_wsdm.fftw3","r");
+    if( t_wisdom_input_file != NULL )
+    {
+        if( fftw_import_wisdom_from_file( t_wisdom_input_file ) != 0 )
+        {
+            t_wisdom_flag = true;
+        }
+        fclose( t_wisdom_input_file );
+    }
+
+    _aa_forward_plan = fftw_plan_dft_1d( _size, _aa_sig_buf, _aa_xfm_buf, FFTW_FORWARD, FFTW_MEASURE );
+    _aa_reverse_plan = fftw_plan_dft_1d( _size, _aa_xfm_buf, _aa_sig_buf, FFTW_BACKWARD, FFTW_MEASURE );
+    _wvd_plan = fftw_plan_dft_1d( _freq_bins, _wvd_in, _wvd_out, FFTW_FORWARD, FFTW_MEASURE );
+
+    if( t_wisdom_flag == false )
+    {
+        t_wisdom_output_file = fopen("./glth_wsdm.fftw3","w");
+        if( t_wisdom_output_file != NULL )
+        {
+            fftw_export_wisdom_to_file( t_wisdom_output_file );
+            fclose( t_wisdom_output_file );
+        }
+    }
 }
 glth::glth_xfrmr::~glth_xfrmr()
 {
@@ -104,10 +133,7 @@ void glth::glth_xfrmr::xwvd( const glth::signal& in_1, const glth::signal& in_2,
     return;
 }
 
-void xwvd_slice( const glth::signal& tgt1, 
-		 const glth::signal& tgt2, 
-		 glth::signal& out,
-		 const int instant)
+void xwvd_slice( const glth::signal& tgt1, const glth::signal& tgt2, glth::signal& out, const int instant )
 {
-  /* no-op */
+    /* no-op */
 }
