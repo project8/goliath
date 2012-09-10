@@ -3,10 +3,8 @@
 
 #include "glth_signal.hpp"
 #include "glth_tfr_data.hpp"
-extern "C"
-{
+
 #include "fftw3.h"
-}
 
 namespace glth
 {
