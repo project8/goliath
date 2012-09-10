@@ -206,7 +206,7 @@ int main( int argc, char** argv )
 		// dramatic but illustrates the point.  fm_min and fm_max are below in 
 		// frequency bins / time bin, and can be derived at run time although they
 		// are not here.
-		double fm_min(0.001), fm_max(0.003);
+		double fm_min(0.0005), fm_max(0.001);
 		
 		// These are the upper and lower edges of the chirp cone at a given plane.
 		std::size_t upper_c, lower_c;
@@ -255,7 +255,7 @@ int main( int argc, char** argv )
 
 		  // Sic the discriminator on it.  Go bin by bin in the frequency domain
 		  // and check if the XWVD meets the threshold requirement.
-		  for(std::size_t f = 0; f < nbins; f++) {
+		  for(std::size_t f = bin10MHz; f < bin100MHz; f++) {
 
 		    // Are we 3 sigma above?
 		    if( glth::cplx_norm(loc_xwvd[f]) >= 
@@ -276,14 +276,14 @@ int main( int argc, char** argv )
 
 		    // Loop over bins in plane 0 and compare them to bins in plane 1
 		    // that are high.
-		    for( int f0 = 0; f0 < nbins; f0++ ) {
+		    for( int f0 = bin10MHz; f0 < bin100MHz; f0++ ) {
 		      upper_c = (int)(f0 + fm_max*stride);
 		      lower_c = (int)(f0 + fm_min*stride);
 		      // if a bin in plane 0 is high, look inside the chirp cone of
 		      // plane 1.
 		      if(planes[0][f0] == true ) {
 			for(std::size_t f1 = lower_c; f1 < upper_c; f1++) {
-			  if((f1 < nbins) && (planes[1][f1] == true)) {
+			  if((f1 < bin100MHz) && (planes[1][f1] == true)) {
 			    sgs.push_back(glth::segment(0,f0,wvd_coarse_stride,f1));
 			  }
 			} // loop over chirp cone bins
