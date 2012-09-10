@@ -71,8 +71,8 @@ int main( const int argc, char** argv )
             glth_const::io_result proc_res;
             std::size_t evt = 0;
             std::size_t offset;
-            while( (proc_res = io->populate( ch1, ch2 )) == glth_const::io_read_ok )
-            {
+	    proc_res = io->populate( ch1, ch2 );
+	    //            {
                 std::cout << "[normal] processing event <" << evt << ">..." << std::endl;
 
                 // Calculate the analytic associate signal for each channel
@@ -92,7 +92,7 @@ int main( const int argc, char** argv )
                     }
                     offset += time_bins;
                 }
-            }
+		//            }
 
             output.close();
         }

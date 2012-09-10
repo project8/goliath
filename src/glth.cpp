@@ -1,5 +1,6 @@
 #include <iostream>
 #include <map>
+#include <list>
 #include "glth_io.hpp"
 #include "glth_env.hpp"
 #include "glth_signal.hpp"
@@ -10,7 +11,7 @@
 #include "glth_discrim.hpp"
 #include "glth_util.hpp"
 #include "glth_tfr_map.hpp"
-#include "glth_segment.hpp"
+#include "glth_geom.hpp"
 #include <cv.h>
 #include <highgui.h>
 
@@ -70,10 +71,10 @@ int main( int argc, char** argv )
             std::cout << "*Nyquist frequency is " << nyquist_f << "MHz" << std::endl;
 
 	    std::size_t nbins = env->get_freq_res();
-            if( nbins > 1024 )
+            if( nbins > 4096 )
             {
-	      std::cout << "**>nbins too large! (" << nbins << ")" << ", adjusting to 1024" << std::endl;
-	      nbins = 1024;
+	      std::cout << "**>nbins too large! (" << nbins << ")" << ", adjusting to 4096" << std::endl;
+	      nbins = 4096;
             }
             std::cout << "**Using " << nbins << " FFT frequency bins" << std::endl;
             float freq_res = nyquist_f * 1.0e6 / (double) nbins;
@@ -109,7 +110,7 @@ int main( int argc, char** argv )
                 std::cout << "**Calculating XWVD for background analysis..." << std::endl;
 		glth::signal bkg_slice(nbins);
 		for(std::size_t time = 0; time < 1024; time++) {
-		  xfm.xwvd_slice(ch1,ch2,bkg_slice,time);
+		  xfm.xwvd(ch1,ch2,bkg_slice,time);
 		  tfr_bkg_m.insert(std::make_pair(time,bkg_slice));
 		}
 
@@ -192,7 +193,7 @@ int main( int argc, char** argv )
 		// 10^10.  Return to the furthest time position and repeat.
 
 		// This is the coarse stride.  
-		std::size_t wvd_coarse_stride = 2500;
+		int wvd_coarse_stride = 2500;
 
                 // We need to define a chirp cone.  For a linear FM chirp with a 
 		// linear modulation b, such that f(t) = a + bt, if bin (a) is high
@@ -203,8 +204,12 @@ int main( int argc, char** argv )
 		// a part per thousand per time slice and no more than 100 parts per thousand,
 		// then 2500 bins away, we look between a+2 and a+25000.  This is obviously 
 		// dramatic but illustrates the point.  fm_min and fm_max are below in 
-		// frequency bins / time bin, which can be derived at run time.
-		std::size_t fm_min(1), fm_max(3);
+		// frequency bins / time bin, and can be derived at run time although they
+		// are not here.
+		double fm_min(0.001), fm_max(0.003);
+		
+		// These are the upper and lower edges of the chirp cone at a given plane.
+		std::size_t upper_c, lower_c;
 
                 // The discriminator banks.  We need 4 of them max.
 		std::vector<discriminator> planes;
@@ -216,11 +221,11 @@ int main( int argc, char** argv )
                 std::vector< candidate > cs;
 
 		// Start after the background calculated stuff.
-                std::size_t t0 = 1024;
-		std::size_t t = t0;
+                int t0 = 1024;
+		int t = t0;
 
 		// The current stride.  Right now it's the coarse stride.
-		std::size_t stride = wvd_coarse_stride;
+		int stride = wvd_coarse_stride;
 
 		// Temporary calculation signal
 		glth::signal loc_xwvd(nbins);
@@ -230,17 +235,23 @@ int main( int argc, char** argv )
 
 		// Bools for finding an event.
 		bool evt_found = false;
+		bool stop_search = false;
 
-		// Segments that we have found so far.
-		std::vector<segment> sgs;
+		// Segments that we have found so far. 
+		std::list<segment> sgs;
+
+		// Discriminators based on search index.  If the search at index
+		// i succeeds, search_pass[i] == true.
+		discriminator search_pass(4);
 
 		// GO GO GO 
+		std::cout << "**Entering segmented search..." << std::endl;
+
 		while( t < record_len ) {
-		  // If we triggered at this time slice, mark it.
-		  bool disc_fired = false;
+		  std::cout << "t = " << t << std::endl;
 
 		  // Calculate the XWVD of the two channels at this time slice.
-		  xfm.xwvd_slice(ch1,ch2,loc_xwvd,t);
+		  xfm.xwvd(ch1,ch2,loc_xwvd,t);
 
 		  // Sic the discriminator on it.  Go bin by bin in the frequency domain
 		  // and check if the XWVD meets the threshold requirement.
@@ -248,38 +259,142 @@ int main( int argc, char** argv )
 
 		    // Are we 3 sigma above?
 		    if( glth::cplx_norm(loc_xwvd[f]) >= 
-			(3.0*thresh[f].second + thresh[f].first) ) {
+			(3.0*thresh[f].second + thresh[f].first) 
+			|| glth::cplx_norm(loc_xwvd[f]) <= 
+			(thresh[f].first - 3.0*thresh[f].second) ) {
 		      planes[search_idx][f] = true;
-		      disc_fired = true;
-		    }
-		    // What about 3 sigma below?
-		    else if ( glth::cplx_norm(loc_xwvd[f]) <= 
-			      (thresh[f].first - 3.0*thresh[f].second) ) {
-		      planes[search_idx][f] = true;
-		      disc_fired = true;
+		      if(search_idx == 0) search_pass[0] = true;
 		    }
 		  } // For loop over frequency bins
 
 		  // If the search index is greater than 0, then we are binary searching.
-		  // For the current plane, we need to check if we are connected to the 
-		  // previous plane by a segment.  If we are at depth 2 or 3, then there
-		  // is an existing segment (or segments) that need to be checked.  If we
-		  // are at depth 1, we are checking our bins to see if any of them lie
-		  // in the chirp cone from fired discriminators in plane 0.
-		  // Iterate over frequency and check.  
+		  // At plane 1, consider the points above threshold that are within the
+		  // chirp cone of points above threshold in plane 0.  For each one, add
+		  // a segment to the list of possible events.  
+		  if( search_idx == 1 ) {
+		    std::cout << "***Searching at depth 1..." << std::endl;
 
-		  // OK, if the time discriminator fired, then we need to set the 
-		  // stride up to work.
-		  if(disc_fired == true) {
-		    stride = wvd_coarse_stride/(search_idx + 1);
-		    stride = (search_idx % 2 == 0 ? stride : -stride);
+		    // Loop over bins in plane 0 and compare them to bins in plane 1
+		    // that are high.
+		    for( int f0 = 0; f0 < nbins; f0++ ) {
+		      upper_c = (int)(f0 + fm_max*stride);
+		      lower_c = (int)(f0 + fm_min*stride);
+		      // if a bin in plane 0 is high, look inside the chirp cone of
+		      // plane 1.
+		      if(planes[0][f0] == true ) {
+			for(std::size_t f1 = lower_c; f1 < upper_c; f1++) {
+			  if((f1 < nbins) && (planes[1][f1] == true)) {
+			    sgs.push_back(glth::segment(0,f0,wvd_coarse_stride,f1));
+			  }
+			} // loop over chirp cone bins
+		      } // if plane 0 is high
+		    }
+		    // If there are segments to consider, enter the next recursion stage.
+		    if( sgs.size() > 0 ) {
+		      std::cout << "****" << sgs.size() 
+				<< " segments found at search index 1, proceeding..."
+				<< std::endl;
+		      search_pass[1] = true;
+		    }
+		    else {
+		      stop_search = true;
+		    }
+		  } // search index is 1
+
+		  // If the search index is two, then we want to start investigating the
+		  // segments found in the previous search.  For each segment, if a bin
+		  // in the discriminator for plane 2 is high and that bin is located near
+		  // where the segment intersects plane 2, keep the segment.  Otherwise,
+		  // drop it.
+		  if( search_idx == 2 ) {
+		    std::list<segment>::iterator sg_it = sgs.begin();
+		    while(sg_it != sgs.end()) {
+		      // Ask the segment at what point it intercepts the current time plane.
+		      int icept = (*sg_it).value_at((float)wvd_coarse_stride/2);
+
+		      // std::cout << sg_it->x1()
+		      // 		<< ","
+		      // 		<< sg_it->y1()
+		      // 		<< " : "
+		      // 		<< sg_it->x2()
+		      // 		<< ","
+		      // 		<< sg_it->y2()
+		      // 		<< " : "
+		      // 		<< sg_it->slope()
+		      // 		<< "," 
+		      // 		<< icept
+		      // 		<< std::endl;
+
+		      // If the point on the intercept is not true, then erase the element
+		      if(planes[2][icept] != true ) sg_it = sgs.erase(sg_it);
+		      else sg_it++;
+		    }
+		    
+		    // Now report the number of elements and either go to level 3 if we still
+		    // have some candidates or stop searching.
+		    if(sgs.size() > 0) {
+		      std::cout << "***Search depth 2 finished with " 
+				<< sgs.size() << " elements.  Proceeding..."
+				<< std::endl;
+		      search_pass[2] = true;
+		    }
+		    // Flag that we should stop.
+		    else {
+		      stop_search = true;
+		    }
+		  } // Search index 2 finishes
+		  
+		  // Search level 3.  One more check here.  We again ensure that the
+		  // planes are connected at this time slice.
+		  if( search_idx == 3 ) {
+		    std::list<segment>::iterator sg_it = sgs.begin();
+		    while(sg_it != sgs.end()) {
+		      // Ask the segment at what point it intercepts the current time plane.
+		      int icept = (*sg_it).value_at((float)wvd_coarse_stride*3.0/4);
+
+		      // If the point on the intercept is not true, then erase the element
+		      if(planes[3][icept] != true ) sg_it = sgs.erase(sg_it);
+		      else sg_it++;
+		    }
+		    
+		    // Now report the number of elements and either go to level 3 if we still
+		    // have some candidates or stop searching.
+		    if(sgs.size() > 0) {
+		      std::cout << "***Search depth 3 finished with " 
+				<< sgs.size() << " elements.  Proceeding..."
+				<< std::endl;
+		      search_pass[3] = true;
+		    }
+		    // Flag that we should stop.
+		    else {
+		      stop_search = true;
+		    }
 		  }
-		  else if (search_idx > 3) {
-		    evt_found = true;
+
+		  // Recalculate the stride.
+		  std::cout << "search_idx = " << search_idx << std::endl;
+		  stride = wvd_coarse_stride/(search_idx + 1);
+		  stride = ((search_idx % 2 == 0) ? stride : -stride);
+		  if( search_pass[search_idx] == true ) search_idx++;
+
+		  // If we should stop because one of the levels exited or because we have
+		  // found an event, exit.
+		  if(stop_search == true || search_idx > 3 ) {
+		    if( search_idx > 3) evt_found = true;
+		    stop_search = false;
+		    std::cout << "**Segment search stopped at level " 
+			      << search_idx
+			      << "... advancing."
+			      << std::endl;
+		    search_idx = 0;
 		    stride = wvd_coarse_stride;
+		    search_pass[0] = true;
+		    sgs.clear();
+		    for(int i = 1; i < 4; i++) search_pass[i] = false;
 		  }
 		  
 		  // Go to the next time slice.
+		  std::cout << "stride = " << stride << std::endl;
 		  t += stride;
 
 		} // While t is less than the record length
